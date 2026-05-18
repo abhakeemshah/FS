@@ -1,24 +1,26 @@
+'use client';
+
+import Link from 'next/link';
 import { AdminShell } from '../../../../components/admin-shell';
 
 export default function AdminPartiesPage() {
-  return (
-    <AdminShell active="parties" title="Parties">
-      <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-blue-200 bg-gradient-to-r from-blue-600 to-blue-700">
-          <h2 className="text-lg font-bold text-white">Customers and Suppliers</h2>
-          <p className="text-xs text-blue-100">Manage party records and account summaries.</p>
-        </div>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs text-slate-500">Active Customers</p>
-            <p className="text-lg font-extrabold text-slate-900">236</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs text-slate-500">Active Suppliers</p>
-            <p className="text-lg font-extrabold text-slate-900">42</p>
-          </div>
-        </div>
-      </section>
-    </AdminShell>
-  );
+	return (
+		<AdminShell active="parties" title="Parties">
+			<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+				<div className="border-b border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 px-4 py-4">
+					<h2 className="text-lg font-bold text-white">Parties</h2>
+				</div>
+				<div className="grid gap-3 p-4 sm:grid-cols-2">
+					<Link href="/login/admin/parties/customers" className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-100">
+						<div className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700">Customers</div>
+						<div className="mt-2 text-base font-extrabold text-slate-900">Customer history</div>
+					</Link>
+					<Link href="/login/admin/parties/suppliers" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-rose-100">
+						<div className="text-[10px] font-bold uppercase tracking-[0.16em] text-rose-700">Suppliers</div>
+						<div className="mt-2 text-base font-extrabold text-slate-900">Purchase history</div>
+					</Link>
+				</div>
+			</section>
+		</AdminShell>
+	);
 }

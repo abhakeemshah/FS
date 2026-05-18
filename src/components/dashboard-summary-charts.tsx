@@ -1,96 +1,149 @@
- 'use client';
+'use client';
 
-import { useAdminShellLayout } from './admin-shell';
+import { useEffect, useState } from 'react';
+import { LEDGER_STORAGE_EVENT, SALES_BILLS_STORAGE_KEY, readStoredArray, type SalesBillLike } from '../lib/ledger-store';
 
-const invoiceMonths = ['May 2025', 'Aug 2025', 'Nov 2025', 'Feb 2026', 'Apr 2026'];
-const invoiceValues = [12, 18, 15, 29, 42];
+const fullYearMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const salesMonths = ['May 2025', 'Aug 2025', 'Nov 2025', 'Feb 2026', 'Apr 2026'];
-const salesValues = [8, 14, 20, 27, 38];
+const createEmptySeries = () => Array.from({ length: 12 }, () => 0);
 
-function MiniBarChart({ values, barColor }: { values: number[]; barColor: string }) {
-  const maxValue = Math.max(...values);
+const getMonthIndex = (value: string) => {
+  const month = Number(value.slice(5, 7));
+  return Number.isFinite(month) && month >= 1 && month <= 12 ? month - 1 : 0;
+};
+
+const buildSeries = (records: SalesBillLike[]) => {
+  const invoiceValues = createEmptySeries();
+  const salesValues = createEmptySeries();
+
+  records.forEach((record) => {
+    const index = getMonthIndex(record.date);
+    invoiceValues[index] += 1;
+    salesValues[index] += Number.isFinite(record.total) ? record.total : 0;
+  });
+
+  return { invoiceValues, salesValues };
+};
+
+function YearlyBarChart({ values, barColor }: { values: number[]; barColor: string }) {
+  const maxValue = Math.max(...values, 1);
+  const chartHeight = 248;
+  const chartWidth = 720;
+  const innerLeft = 42;
+  const innerRight = 14;
+  const innerTop = 28;
+  const innerBottom = 30;
+  const plotWidth = chartWidth - innerLeft - innerRight;
+  const plotHeight = chartHeight - innerTop - innerBottom;
+  const bandWidth = plotWidth / values.length;
+  const barWidth = Math.min(54, bandWidth * 0.86);
 
   return (
-    <svg viewBox="0 0 320 120" className="h-28 w-full">
+    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[266px] w-full">
       <defs>
-        <linearGradient id={`${barColor}-grid`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#e5e7eb" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#e5e7eb" stopOpacity="0.15" />
+        <linearGradient id={`${barColor}-fill`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={barColor} stopOpacity="1" />
+          <stop offset="100%" stopColor={barColor} stopOpacity="0.55" />
         </linearGradient>
+        <filter id={`${barColor}-shadow`} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor={barColor} floodOpacity="0.25" />
+        </filter>
       </defs>
-      <rect x="0" y="0" width="320" height="120" rx="14" fill="transparent" />
-      {[16, 38, 60, 82, 104].map((y) => (
-        <line key={y} x1="38" y1={y} x2="308" y2={y} stroke="url(#invoice-grid)" strokeWidth="1" />
+      {fullYearMonths.map((_, index) => (
+        <text
+          key={`number-${index + 1}`}
+          x={innerLeft + bandWidth * index + bandWidth / 2}
+          y="14"
+          textAnchor="middle"
+          fill="#334155"
+          fontSize="14"
+          fontWeight="700"
+        >
+          {index + 1}
+        </text>
       ))}
-      {values.map((value, index) => {
-        const height = (value / maxValue) * 72;
-        const x = 54 + index * 54;
-        const y = 104 - height;
+
+      {[0, 1, 2, 3, 4].map((step) => {
+        const y = innerTop + (plotHeight / 4) * step;
+        const label = Math.round(maxValue - (maxValue / 4) * step);
+
         return (
-          <g key={`${value}-${index}`}>
-            <rect x={x} y={y} width="28" height={height} rx="5" fill={barColor} opacity="0.72" />
+          <g key={step}>
+            <line x1={innerLeft} y1={y} x2={chartWidth - innerRight} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+            <text x="12" y={y + 4} fill="#64748b" fontSize="10" fontWeight="600">
+              {label}
+            </text>
           </g>
         );
       })}
-      <line x1="38" y1="104" x2="308" y2="104" stroke="#cbd5e1" strokeWidth="1" />
+
+      {values.map((value, index) => {
+        const height = (value / maxValue) * plotHeight;
+        const x = innerLeft + bandWidth * index + bandWidth / 2 - barWidth / 2;
+        const y = innerTop + plotHeight - height;
+
+        return (
+          <g key={`${value}-${index}`}>
+            <rect x={x} y={y} width={barWidth} height={height} rx="14" fill={`url(#${barColor}-fill)`} filter={`url(#${barColor}-shadow)`} />
+            <rect x={x} y={y} width={barWidth} height={Math.max(10, height * 0.16)} rx="14" fill="rgba(255,255,255,0.18)" />
+          </g>
+        );
+      })}
+
+      {fullYearMonths.map((month, index) => (
+        <text
+          key={month}
+          x={innerLeft + bandWidth * index + bandWidth / 2}
+          y={chartHeight - 4}
+          textAnchor="middle"
+          fill="#64748b"
+          fontSize="14"
+          fontWeight="700"
+        >
+          {month}
+        </text>
+      ))}
     </svg>
   );
 }
 
 function ChartCard({
   title,
-  value,
-  label,
   buttonLabel,
   buttonTone,
   barColor,
-  months,
   values,
   legend,
 }: {
   title: string;
-  value: string;
-  label: string;
   buttonLabel: string;
   buttonTone: string;
   barColor: string;
-  months: string[];
   values: number[];
   legend: Array<{ label: string; color: string }>;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white/95 p-3.5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <div className="mt-4 flex items-end gap-3">
-            <div>
-              <div className="text-xl font-black tracking-tight text-slate-900">{value}</div>
-              <div className="text-xs text-slate-500">{label}</div>
-            </div>
+    <section className="flex h-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+      <div className="flex flex-wrap items-start justify-between gap-2 px-1 pt-1">
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-sm font-bold tracking-tight text-slate-900">{title}</h3>
           </div>
         </div>
 
         <button
           type="button"
-          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${buttonTone}`}
+          className={`inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${buttonTone}`}
         >
-          <span className="material-symbols-outlined text-[16px]">insert_chart</span>
           {buttonLabel}
         </button>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-xl bg-slate-50/80 p-2.5">
-        <MiniBarChart values={values} barColor={barColor} />
-        <div className="mt-1.5 flex flex-wrap items-center gap-3 pl-10 text-[10px] text-slate-500">
-          {months.map((month) => (
-            <span key={month}>{month}</span>
-          ))}
-        </div>
+      <div className="mt-1 flex-1">
+        <YearlyBarChart values={values} barColor={barColor} />
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-3 text-xs">
+      <div className="mt-auto flex flex-wrap gap-2 px-1 pb-1 text-[11px]">
         {legend.map((item) => (
           <div key={item.label} className="flex items-center gap-2 text-slate-600">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
@@ -103,34 +156,46 @@ function ChartCard({
 }
 
 export function DashboardSummaryCharts() {
-  const { isCollapsed } = useAdminShellLayout();
+  const [invoiceValues, setInvoiceValues] = useState<number[]>(createEmptySeries());
+  const [salesValues, setSalesValues] = useState<number[]>(createEmptySeries());
+
+  useEffect(() => {
+    const refresh = () => {
+      const records = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY);
+      const { invoiceValues: nextInvoices, salesValues: nextSales } = buildSeries(records);
+      setInvoiceValues(nextInvoices);
+      setSalesValues(nextSales);
+    };
+
+    refresh();
+
+    const onStorage: EventListener = () => refresh();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(LEDGER_STORAGE_EVENT, onStorage);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(LEDGER_STORAGE_EVENT, onStorage);
+    };
+  }, []);
 
   return (
-    <div className={`grid gap-3 ${isCollapsed ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 xl:grid-cols-2'}`}>
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
       <ChartCard
-        title="Invoices Over Time"
-        value="1"
-        label="Recent Invoices"
-        buttonLabel="View Report"
-        buttonTone="border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-        barColor="#93c5fd"
-        months={invoiceMonths}
+        title="Invoices by Month"
+        buttonLabel="Open Invoice Report"
+        buttonTone="border-slate-200 bg-slate-50 text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+        barColor="#60a5fa"
         values={invoiceValues}
-        legend={[{ label: 'Revenue', color: '#60a5fa' }]}
+        legend={[{ label: 'Invoices issued', color: '#60a5fa' }]}
       />
       <ChartCard
-        title="Sales"
-        value="42,500.00"
-        label="Monthly profit"
-        buttonLabel="View Report"
-        buttonTone="border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-        barColor="#86efac"
-        months={salesMonths}
+        title="Sales Performance"
+        buttonLabel="Open Sales Report"
+        buttonTone="border-slate-200 bg-slate-50 text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+        barColor="#34d399"
         values={salesValues}
-        legend={[
-          { label: 'Profit', color: '#22c55e' },
-          { label: 'Loss', color: '#f87171' },
-        ]}
+        legend={[{ label: 'Sales volume', color: '#10b981' }]}
       />
     </div>
   );

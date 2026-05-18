@@ -1,0 +1,32 @@
+{
+  "sabir": {
+    "role": "cashier",
+    "status": "active",
+    "permissions": {
+      "sales": "view",
+      "purchases": "edit",
+      "payments": "edit",
+      "parties": "edit",
+      "reports": "edit",
+      "settings": "none",
+      "staff": "none"
+    },
+    "lastUpdatedAt": "2026-05-17T22:18:55.205Z"
+  },
+  "staff@fscomms.io": {
+    "role": "cashier",
+    "status": "active",
+    "permissions": {
+      "sales": "view",
+      "purchases": "view",
+      "payments": "view",
+      "parties": "none",
+      "reports": "none"
+    },
+    "allowedSettings": [
+      "profile",
+      "interface"
+    ],
+    "lastUpdatedAt": "2026-05-18T12:46:39.709Z"
+  }
+}
