@@ -54,19 +54,19 @@ export default function AdminLoginPage() {
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-indigo-600/3 rounded-full blur-[80px]" />
 
-        <div className="w-full max-w-md relative mt-14">
+        <div className="w-full max-w-sm relative mt-14">
           <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl">
             {/* Header Section */}
-            <div className="px-10 pt-10 pb-8 text-center border-b border-slate-100 bg-gradient-to-b from-indigo-50 to-white">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-indigo-600 to-indigo-700 mb-5 shadow-lg shadow-indigo-600/30">
-                <span className="material-symbols-outlined text-white text-2xl">admin_panel_settings</span>
+            <div className="px-8 pt-8 pb-6 text-center border-b border-slate-100 bg-gradient-to-b from-indigo-50 to-white">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-indigo-600 to-indigo-700 mb-4 shadow-md shadow-indigo-600/20">
+                <span className="material-symbols-outlined text-white text-lg">admin_panel_settings</span>
               </div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">Admin Login</h1>
-              <p className="text-sm text-slate-600 font-medium">Enter your credentials to access the dashboard</p>
+              <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-1">Admin Login</h1>
+              <p className="text-sm text-slate-600">Enter your credentials to access the dashboard</p>
             </div>
 
             {/* Form Section */}
-            <form onSubmit={handleSubmit} className="px-10 py-10 space-y-6">
+            <form onSubmit={handleSubmit} className="px-8 py-8 space-y-4">
               {/* Email Field */}
               <div className="space-y-3">
                 <label className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
@@ -78,7 +78,7 @@ export default function AdminLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@fscomms.io"
-                  className="w-full px-4 py-3 rounded-lg bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none text-sm font-medium"
+                  className="w-full px-3 py-2 rounded-lg bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none text-sm font-medium"
                   required
                 />
               </div>
@@ -104,7 +104,7 @@ export default function AdminLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••"
-                    className="w-full px-4 py-3 rounded-lg bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none text-sm font-medium"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 transition-all outline-none text-sm font-medium"
                     required
                   />
                 </div>
@@ -122,7 +122,7 @@ export default function AdminLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/30 hover:shadow-xl hover:shadow-indigo-600/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-600/20 hover:shadow-lg hover:shadow-indigo-600/30 active:scale-[0.995] disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-lg">{loading ? 'schedule' : 'login'}</span>
                 {loading ? 'Signing In...' : 'Sign In as Admin'}
