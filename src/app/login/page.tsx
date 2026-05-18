@@ -34,10 +34,7 @@ export default function LoginPage() {
           <div className="hidden md:flex items-center justify-center h-full">
             <div className="w-full max-w-[44rem] h-full max-h-[calc(100svh-7rem)] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100 relative">
               <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80')` }} />
-              <div className="absolute bottom-6 left-6 text-white drop-shadow-lg">
-                <h3 className="text-2xl font-semibold">Manage Properties Efficiently</h3>
-                <p className="text-sm max-w-lg mt-2">Easily track invoices, purchases, and team communication in one place.</p>
-              </div>
+              <div className="absolute bottom-6 left-6 text-white drop-shadow-lg" />
             </div>
           </div>
 
