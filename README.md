@@ -31,11 +31,15 @@ Important files
 - `src/lib/staff-auth.ts` — local staff auth helpers
 
 Environment variables
-- Copy `.env.example` to `.env.local` and fill values before running locally.
-- `NEXTAUTH_SECRET` must be set in all deployed environments and rotated if exposed.
 
 Contributing & workflow
-- Follow the `CONTRIBUTING.md` in the repository for branch names, PR checks and commit message style.
+
+Production Deployment (Hostinger)
+- See [HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md) for step-by-step deployment guide.
+- Domain: admin.fs-communication.com
+- Uses PM2 for process management and auto-restart.
+- Requires Node.js 18+ on Hostinger.
+
 - Create feature branches from `main` and open a PR for review; use the provided PR template.
 
 Security & secrets
