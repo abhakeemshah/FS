@@ -139,11 +139,6 @@ function RightPanel() {
           </form>
         )}
 
-        <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-center text-xs text-slate-600">
-          <span className="font-semibold text-slate-700">Test Credentials:</span>
-          <div className="mt-1">Admin: admin@fscomms.io / admin123</div>
-          <div>Staff: staff@fscomms.io / staff123</div>
-        </div>
       </div>
     </div>
   );
