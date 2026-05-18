@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import Link from 'next/link';
 import { useState } from 'react';
@@ -25,14 +25,14 @@ export default function LoginPage() {
         </div>
       </header>
 
-      <main className="min-h-screen p-4 relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <main className="h-[100svh] pt-20 p-4 relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-indigo-600/3 rounded-full blur-[80px]" />
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center min-h-[70vh]">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 items-center h-[calc(100svh-6rem)] max-h-[calc(100svh-6rem)]">
           {/* Left visual panel */}
-          <div className="flex items-center justify-center">
-            <div className="w-full max-w-[44rem] h-[520px] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100 relative">
+          <div className="hidden md:flex items-center justify-center h-full">
+            <div className="w-full max-w-[44rem] h-full max-h-[calc(100svh-7rem)] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100 relative">
               <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80')` }} />
               <div className="absolute bottom-6 left-6 text-white drop-shadow-lg">
                 <h3 className="text-2xl font-semibold">Manage Properties Efficiently</h3>
@@ -42,9 +42,9 @@ export default function LoginPage() {
           </div>
 
           {/* Right form panel */}
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center h-full">
             <div className="w-full max-w-md">
-              <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl p-6">
+              <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl p-5 max-h-[calc(100svh-7rem)] overflow-hidden">
                 <RightPanel />
               </div>
             </div>
