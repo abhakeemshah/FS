@@ -29,7 +29,7 @@ export default function LoginPage() {
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-indigo-600/3 rounded-full blur-[80px]" />
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[3fr_1fr] gap-6 items-center h-[calc(100svh-6rem)] max-h-[calc(100svh-6rem)]">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[65fr_35fr] gap-6 items-center h-[calc(100svh-6rem)] max-h-[calc(100svh-6rem)]">
           {/* Left visual panel */}
           <div className="hidden md:flex items-center justify-center h-full">
             <div className="w-full h-[98%] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100 relative">
@@ -40,7 +40,7 @@ export default function LoginPage() {
 
           {/* Right form panel */}
           <div className="flex items-center justify-center h-full">
-            <div className="w-full max-w-sm">
+            <div className="w-full max-w-[28rem]">
               <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl p-5 max-h-[calc(100svh-7rem)] overflow-hidden">
                 <RightPanel />
               </div>
