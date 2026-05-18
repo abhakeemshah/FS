@@ -29,10 +29,10 @@ export default function LoginPage() {
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-indigo-600/3 rounded-full blur-[80px]" />
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 items-center h-[calc(100svh-6rem)] max-h-[calc(100svh-6rem)]">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[3fr_1fr] gap-6 items-center h-[calc(100svh-6rem)] max-h-[calc(100svh-6rem)]">
           {/* Left visual panel */}
           <div className="hidden md:flex items-center justify-center h-full">
-            <div className="w-full max-w-[44rem] h-full max-h-[calc(100svh-7rem)] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100 relative">
+            <div className="w-full h-[98%] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100 relative">
               <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80')` }} />
               <div className="absolute bottom-6 left-6 text-white drop-shadow-lg" />
             </div>
@@ -40,7 +40,7 @@ export default function LoginPage() {
 
           {/* Right form panel */}
           <div className="flex items-center justify-center h-full">
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-sm">
               <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl p-5 max-h-[calc(100svh-7rem)] overflow-hidden">
                 <RightPanel />
               </div>
@@ -53,9 +53,9 @@ export default function LoginPage() {
 }
 
 function RightPanel() {
-  const [role, setRole] = useState<'none' | 'admin' | 'staff'>('none');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'admin' | 'staff'>('admin');
+  const [email, setEmail] = useState('admin@fscomms.io');
+  const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -108,7 +108,7 @@ function RightPanel() {
           <span className="material-symbols-outlined text-white text-base">security</span>
         </div>
         <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-1">Welcome Back</h1>
-        <p className="text-xs text-slate-600">Select your role to continue</p>
+        <p className="text-xs text-slate-600">Login is ready below. Switch role only if needed.</p>
       </div>
 
       <div className="space-y-3">
@@ -117,24 +117,22 @@ function RightPanel() {
           <button type="button" onClick={() => selectRole('staff')} className={`flex-1 rounded-full px-4 py-2 ${role === 'staff' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-900'} border ${role === 'staff' ? 'border-emerald-600' : 'border-emerald-200'} font-semibold`}>Staff</button>
         </div>
 
-        {role !== 'none' && (
-          <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-            <div>
-              <label className="text-xs text-slate-700">Email</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-2 rounded-full border border-slate-200 bg-slate-50 outline-none text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-700">Password</label>
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="w-full px-4 py-2 rounded-full border border-slate-200 bg-slate-50 outline-none text-sm" />
-            </div>
+        <form onSubmit={handleSubmit} className="mt-3 space-y-3">
+          <div>
+            <label className="text-xs text-slate-700">Email</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-2 rounded-full border border-slate-200 bg-slate-50 outline-none text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-700">Password</label>
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="w-full px-4 py-2 rounded-full border border-slate-200 bg-slate-50 outline-none text-sm" />
+          </div>
 
-            {error && <div className="text-sm text-red-700">{error}</div>}
+          {error && <div className="text-sm text-red-700">{error}</div>}
 
-            <button type="submit" disabled={loading} className="w-full rounded-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold">
-              {loading ? 'Signing In...' : `Sign in as ${role === 'admin' ? 'Admin' : 'Staff'}`}
-            </button>
-          </form>
-        )}
+          <button type="submit" disabled={loading} className={`w-full rounded-full py-3 ${role === 'admin' ? 'bg-gradient-to-r from-indigo-600 to-indigo-700' : 'bg-gradient-to-r from-emerald-600 to-emerald-700'} text-white font-semibold`}>
+            {loading ? 'Signing In...' : `Sign in as ${role === 'admin' ? 'Admin' : 'Staff'}`}
+          </button>
+        </form>
 
       </div>
     </div>
