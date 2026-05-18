@@ -22,56 +22,48 @@ export default function LoginPage() {
         </div>
       </header>
 
-      <main className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <main className="min-h-screen p-4 relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-indigo-600/3 rounded-full blur-[80px]" />
 
-        <div className="w-full max-w-xl relative mt-12">
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl">
-            {/* Header Section */}
-            <div className="px-6 pt-8 pb-5 text-center border-b border-slate-100">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-indigo-700 mb-3 shadow-sm">
-                <span className="material-symbols-outlined text-white text-base">security</span>
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center min-h-[70vh]">
+          {/* Left visual panel */}
+          <div className="flex items-center justify-center">
+            <div className="w-full max-w-[44rem] h-[520px] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100">
+              <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1560184897-6b7d7f0a6a57?q=80&w=1400&auto=format&fit=crop&ixlib=rb-4.0.3&s=')` }} />
+              <div className="absolute bottom-6 left-6 text-white drop-shadow-lg">
+                <h3 className="text-2xl font-semibold">Manage Properties Efficiently</h3>
+                <p className="text-sm max-w-lg mt-2">Easily track invoices, purchases, and team communication in one place.</p>
               </div>
-              <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-1">Welcome Back</h1>
-              <p className="text-xs text-slate-600">Select your role to continue</p>
             </div>
+          </div>
 
-            {/* Role Selection Section */}
-            <div className="px-8 py-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Admin Option */}
-                <Link href="/login/admin" className="group">
-                  <div className="relative p-4 rounded-lg bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-200 hover:border-indigo-400 transition-all duration-300 hover:shadow-sm cursor-pointer h-full flex flex-col items-center justify-center">
-                    <div className="mb-2 p-2 rounded-full bg-indigo-600/10 group-hover:bg-indigo-600/20 transition-colors">
-                      <span className="material-symbols-outlined text-indigo-700 text-2xl">admin_panel_settings</span>
-                    </div>
-                    <h3 className="text-sm font-medium text-indigo-900 mb-1">Admin Portal</h3>
-                    <p className="text-xs text-indigo-700 text-center">Manage products, categories, and settings</p>
+          {/* Right form panel */}
+          <div className="flex items-center justify-center">
+            <div className="w-full max-w-md">
+              <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl p-6">
+                <div className="text-center mb-4">
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-indigo-700 mb-3 shadow-sm mx-auto">
+                    <span className="material-symbols-outlined text-white text-base">security</span>
                   </div>
-                </Link>
+                  <h1 className="text-2xl font-semibold text-slate-900 tracking-tight mb-1">Welcome Back</h1>
+                  <p className="text-xs text-slate-600">Select your role to continue</p>
+                </div>
 
-                {/* Staff Option */}
-                <Link href="/login/staff" className="group">
-                  <div className="relative p-4 rounded-lg bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200 hover:border-emerald-400 transition-all duration-300 hover:shadow-sm cursor-pointer h-full flex flex-col items-center justify-center">
-                    <div className="mb-2 p-2 rounded-full bg-emerald-600/10 group-hover:bg-emerald-600/20 transition-colors">
-                      <span className="material-symbols-outlined text-emerald-700 text-2xl">badge</span>
-                    </div>
-                    <h3 className="text-sm font-medium text-emerald-900 mb-1">Staff Portal</h3>
-                    <p className="text-xs text-emerald-700 text-center">Access your dashboard and reports</p>
+                <div className="space-y-4">
+                  <Link href="/login/admin" className="block">
+                    <div className="w-full rounded-full px-5 py-3 bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200 hover:bg-indigo-100 transition">Admin Portal</div>
+                  </Link>
+                  <Link href="/login/staff" className="block">
+                    <div className="w-full rounded-full px-5 py-3 bg-emerald-50 text-emerald-900 font-semibold border border-emerald-200 hover:bg-emerald-100 transition">Staff Portal</div>
+                  </Link>
+
+                  <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-center text-xs text-slate-600">
+                    <span className="font-semibold text-slate-700">Test Credentials:</span>
+                    <div className="mt-1">Admin: admin@fscomms.io / admin123</div>
+                    <div>Staff: staff@fscomms.io / staff123</div>
                   </div>
-                </Link>
-              </div>
-
-              {/* Info Box */}
-              <div className="mt-6 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <p className="text-xs text-slate-600 text-center">
-                  <span className="font-semibold text-slate-700">Test Credentials:</span>
-                  <br />
-                  Admin: admin@fscomms.io / admin123
-                  <br />
-                  Staff: staff@fscomms.io / staff123
-                </p>
+                </div>
               </div>
             </div>
           </div>

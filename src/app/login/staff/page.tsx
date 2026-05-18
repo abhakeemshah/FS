@@ -68,13 +68,13 @@ export default function StaffLoginPage() {
         <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-emerald-600/3 rounded-full blur-[80px]" />
 
         <div className="w-full max-w-[20rem] relative mt-12">
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl">
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/50 backdrop-blur-2xl p-6">
             {/* Header Section */}
-            <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100 bg-gradient-to-b from-emerald-50 to-white">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-700 mb-3 shadow-sm">
+            <div className="text-center mb-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-700 mb-2 shadow-sm mx-auto">
                 <span className="material-symbols-outlined text-white text-base">badge</span>
               </div>
-              <h1 className="text-xl font-medium text-slate-900 tracking-tight mb-1">Staff Login</h1>
+              <h1 className="text-xl font-semibold text-slate-900 tracking-tight mb-0">Staff Login</h1>
               <p className="text-xs text-slate-600">Access your dashboard and reports</p>
             </div>
 
@@ -91,7 +91,7 @@ export default function StaffLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="staff@fscomms.io"
-                  className="w-full px-2 py-1.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-sm font-medium"
+                  className="w-full px-4 py-2 rounded-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-sm font-medium"
                   required
                 />
               </div>
@@ -117,7 +117,7 @@ export default function StaffLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••"
-                    className="w-full px-2 py-1.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-sm font-medium"
+                    className="w-full px-4 py-2 rounded-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-sm font-medium"
                     required
                   />
                 </div>
@@ -135,7 +135,7 @@ export default function StaffLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold text-xs shadow-sm shadow-emerald-600/20 hover:shadow-md active:scale-[0.995] disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-150 flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold text-sm shadow-md shadow-emerald-600/20 hover:shadow-lg active:scale-[0.995] disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-150 flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-lg">{loading ? 'schedule' : 'login'}</span>
                 {loading ? 'Signing In...' : 'Sign In as Staff'}
