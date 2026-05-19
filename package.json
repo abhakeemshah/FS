@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "npx tsx prisma/seed.ts"
+    "seed": "npx tsx prisma/seed.ts",
       "pm2:start": "pm2 start ecosystem.config.js --name fs-communication",
       "pm2:stop": "pm2 stop fs-communication",
       "pm2:restart": "pm2 restart fs-communication",

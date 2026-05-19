@@ -8,7 +8,7 @@ import { markAdminSessionActive } from '../lib/staff-auth';
 type AdminSection = 'dashboard' | 'sales' | 'products' | 'purchases' | 'payments' | 'parties' | 'reports' | 'settings' | 'staff';
 
 const navItems: Array<{ key: AdminSection; label: string; icon: string; href: string }> = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/login/admin' },
+  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/login/admin/dashboard' },
   { key: 'sales', label: 'Sales', icon: 'payments', href: '/login/admin/sales/invoices' },
   { key: 'products', label: 'Products', icon: 'inventory_2', href: '/login/admin/products' },
   { key: 'purchases', label: 'Purchases', icon: 'shopping_cart', href: '/login/admin/purchases' },
