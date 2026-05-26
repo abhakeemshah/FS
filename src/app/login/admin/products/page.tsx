@@ -35,6 +35,13 @@ type CategoryRecord = CatalogCategoryRecord;
 
 type ProductRecord = CatalogProductRecord;
 
+const normalizeCatalogProduct = (
+	product: Omit<CatalogProductRecord, 'status'> & { status?: string | null },
+): CatalogProductRecord => ({
+	...product,
+	status: product.status === 'draft' ? 'draft' : 'active',
+});
+
 type ProductFormState = {
 	name: string;
 	sku: string;
@@ -749,7 +756,7 @@ export default function AdminProductsPage({ readOnly = false }: { readOnly?: boo
 		// Load products, categories and lists from storage on mount so UI (modals) have data.
 		const storedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
 		const storedCategories = readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY);
-		setProducts(storedProducts);
+		setProducts(storedProducts.map(normalizeCatalogProduct));
 		setCategories(storedCategories);
 
 		// seed catalog from landing data only when BOTH products and categories are empty
@@ -762,7 +769,7 @@ export default function AdminProductsPage({ readOnly = false }: { readOnly?: boo
 			writeStoredValue(LANDING_HERO_STORAGE_KEY, seed.hero, { silent: !feedbackReadyRef.current });
 			// also update in-memory state immediately so UI reflects seed data
 			setCategories(seed.categories);
-			setProducts(seed.products);
+			setProducts(seed.products.map(normalizeCatalogProduct));
 			setLists(seed.lists);
 			setSelectedListIdState(seed.selectedListId);
 		}
@@ -771,7 +778,7 @@ export default function AdminProductsPage({ readOnly = false }: { readOnly?: boo
 		const onChange: EventListener = () => {
 			refreshLists();
 			// Also refresh products and categories when storage changes
-			setProducts(readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY));
+			setProducts(readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY).map(normalizeCatalogProduct));
 			setCategories(readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY));
 		};
 		window.addEventListener('storage', onChange);
