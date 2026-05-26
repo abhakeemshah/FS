@@ -6,6 +6,9 @@ import { AppFeedbackProvider } from '../components/app-feedback';
 export const metadata = {
   title: BUSINESS_PROFILE.shopName,
   description: 'Minimal finance and sales workflow dashboard.',
+  authors: [{ name: 'Abdul Hakeem Shah' }],
+  creator: 'Abdul Hakeem Shah',
+  publisher: 'Abdul Hakeem Shah',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

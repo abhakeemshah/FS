@@ -840,7 +840,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-7 border-t border-white/15 pt-4 text-xs text-blue-100">
-            <p>© {new Date().getFullYear()} {BUSINESS_PROFILE.shopName}. {t('All rights')} </p>
+            <p>© {new Date().getFullYear()} Abdul Hakeem Shah. {t('All rights')} </p>
           </div>
         </footer>
 

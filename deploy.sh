@@ -38,7 +38,6 @@ npm run build
 # 5. Set up database (if using Prisma)
 echo "🗄️  Setting up database..."
 npx prisma migrate deploy || true
-npm run seed || true
 
 # 6. Start with PM2 (if available)
 if command -v pm2 &> /dev/null; then
