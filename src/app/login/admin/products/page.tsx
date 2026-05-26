@@ -697,7 +697,7 @@ export default function AdminProductsPage({ readOnly = false }: { readOnly?: boo
 				}
 			}
 
-			writeStoredValue(LANDING_SECTION_VISIBILITY_KEY, {
+			writeStoredValue(LANDING_SECTION_VISIBILITY_STORAGE_KEY, {
 				...landingSectionVisibility,
 				hot: false,
 			});
