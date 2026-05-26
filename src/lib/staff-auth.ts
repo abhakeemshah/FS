@@ -1,10 +1,13 @@
+import { emitAppActionSuccess, type AppWriteOptions } from './app-feedback';
+
 export const STAFF_ACCOUNTS_STORAGE_KEY = 'fs-communication:staff-accounts';
 export const STAFF_SESSION_STORAGE_KEY = 'fs-communication:staff-session';
+export const STAFF_SESSION_COOKIE = 'fs-communication:staff-session-active';
 export const ADMIN_SESSION_STORAGE_KEY = 'fs-communication:admin-session';
 export const STAFF_ACCESS_META_KEY = 'fs-communication:staff-access-meta';
 export const STAFF_AUTH_EVENT = 'staff-auth-updated';
 
-export const STAFF_MODULE_KEYS = ['sales', 'purchases', 'payments', 'parties', 'reports'] as const;
+export const STAFF_MODULE_KEYS = ['dashboard', 'sales', 'products', 'purchases', 'payments', 'parties', 'reports', 'settings'] as const;
 export const STAFF_SETTINGS_KEYS = ['profile', 'interface', 'alerts', 'quick-actions', 'privacy', 'receipt-view'] as const;
 
 export type StaffModuleKey = (typeof STAFF_MODULE_KEYS)[number];
@@ -35,6 +38,8 @@ export type StaffAccount = {
 	createdAt: string;
 	createdBy: string;
 };
+// Optional archival marker to avoid hard-deletes; use soft-delete by setting `deletedAt`.
+export type StaffAccountRecord = StaffAccount & { deletedAt?: string | null };
 
 export type StaffSession = {
 	id: string;
@@ -50,11 +55,14 @@ const accessRank: Record<StaffAccessLevel, number> = {
 };
 
 const defaultPermissions = (): Record<StaffModuleKey, StaffAccessLevel> => ({
+	dashboard: 'view',
 	sales: 'view',
+	products: 'none',
 	purchases: 'view',
 	payments: 'view',
 	parties: 'none',
 	reports: 'none',
+	settings: 'none',
 });
 
 const defaultAllowedSettings = (): StaffSettingKey[] => ['profile', 'interface'];
@@ -86,11 +94,14 @@ function normalizePermissions(value: unknown): Record<StaffModuleKey, StaffAcces
 
 	const permissions = value as Partial<Record<StaffModuleKey, unknown>>;
 	return {
+		dashboard: normalizeAccessLevel(permissions.dashboard) || fallback.dashboard,
 		sales: normalizeAccessLevel(permissions.sales) || fallback.sales,
+		products: normalizeAccessLevel(permissions.products) || fallback.products,
 		purchases: normalizeAccessLevel(permissions.purchases) || fallback.purchases,
 		payments: normalizeAccessLevel(permissions.payments) || fallback.payments,
 		parties: normalizeAccessLevel(permissions.parties) || fallback.parties,
 		reports: normalizeAccessLevel(permissions.reports) || fallback.reports,
+		settings: normalizeAccessLevel(permissions.settings) || fallback.settings,
 	};
 }
 
@@ -121,30 +132,71 @@ function dispatchAuthChange() {
 	window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
 }
 
+function writeClientCookie(name: string, value: string | null) {
+	if (typeof window === 'undefined') return;
+	if (value === null) {
+		window.document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
+		return;
+	}
+
+	window.document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${24 * 60 * 60}; samesite=lax`;
+}
+
 function readJson<T>(key: string, fallback: T): T {
 	if (typeof window === 'undefined') return fallback;
 
 	try {
 		const rawValue = window.localStorage.getItem(key);
 		if (!rawValue) return fallback;
-		return JSON.parse(rawValue) as T;
+		return decodeStoredJson<T>(rawValue);
 	} catch {
 		return fallback;
 	}
 }
-
-function writeJson<T>(key: string, value: T) {
+function writeJson<T>(key: string, value: T, options?: AppWriteOptions) {
 	if (typeof window === 'undefined') return;
-	window.localStorage.setItem(key, JSON.stringify(value));
+	window.localStorage.setItem(key, encodeStoredJson(value));
 	dispatchAuthChange();
+	if (!options?.silent) emitAppActionSuccess(key);
+}
+
+function encodeStoredJson<T>(value: T): string {
+	const json = JSON.stringify(value);
+	const bytes = new TextEncoder().encode(json);
+	let binary = '';
+
+	for (const byte of bytes) {
+		binary += String.fromCharCode(byte);
+	}
+
+	return window.btoa(binary);
+}
+
+function decodeStoredJson<T>(rawValue: string): T {
+	try {
+		const binary = window.atob(rawValue);
+		const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+		return JSON.parse(new TextDecoder().decode(bytes)) as T;
+	} catch {
+		return JSON.parse(rawValue) as T;
+	}
 }
 
 export function readStaffAccounts(): StaffAccount[] {
-	const accounts = readJson<StaffAccount[]>(STAFF_ACCOUNTS_STORAGE_KEY, []);
+	const accounts = readJson<StaffAccountRecord[]>(STAFF_ACCOUNTS_STORAGE_KEY, []);
 
 	return accounts
-		.filter((account) => account?.username && account?.password)
+		.filter((account) => account && !account.deletedAt && account.username && account.password)
 		.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+// Read the raw stored accounts including soft-deleted records. Use when you need to update or archive.
+export function readAllStaffAccounts(): StaffAccountRecord[] {
+	return readJson<StaffAccountRecord[]>(STAFF_ACCOUNTS_STORAGE_KEY, []);
+}
+
+export function saveStaffAccounts(accounts: StaffAccount[]) {
+	writeJson(STAFF_ACCOUNTS_STORAGE_KEY, accounts);
 }
 
 export function readStaffAccessMetaMap(): StaffAccessMetaMap {
@@ -153,17 +205,18 @@ export function readStaffAccessMetaMap(): StaffAccessMetaMap {
 	try {
 		const raw = window.localStorage.getItem(STAFF_ACCESS_META_KEY);
 		if (!raw) return {};
-		const parsed = JSON.parse(raw) as StaffAccessMetaMap;
+		const parsed = decodeStoredJson<StaffAccessMetaMap>(raw);
 		return parsed && typeof parsed === 'object' ? parsed : {};
 	} catch {
 		return {};
 	}
 }
 
-export function writeStaffAccessMetaMap(value: StaffAccessMetaMap) {
+export function writeStaffAccessMetaMap(value: StaffAccessMetaMap, options?: AppWriteOptions) {
 	if (typeof window === 'undefined') return;
-	window.localStorage.setItem(STAFF_ACCESS_META_KEY, JSON.stringify(value));
+	window.localStorage.setItem(STAFF_ACCESS_META_KEY, encodeStoredJson(value));
 	dispatchAuthChange();
+	if (!options?.silent) emitAppActionSuccess(STAFF_ACCESS_META_KEY);
 
 	if (hasAdminSession()) {
 		void fetch('/api/auth/staff', {
@@ -287,7 +340,11 @@ export function saveStaffSession(account: Pick<StaffAccount, 'id' | 'name' | 'us
 		loggedInAt: new Date().toISOString(),
 	};
 
-	writeJson(STAFF_SESSION_STORAGE_KEY, session);
+	if (typeof window !== 'undefined') {
+		window.localStorage.setItem(STAFF_SESSION_STORAGE_KEY, encodeStoredJson(session));
+		writeClientCookie(STAFF_SESSION_COOKIE, '1');
+		dispatchAuthChange();
+	}
 
 	// Initialize default permissions if not already set
 	const metaMap = readStaffAccessMetaMap();
@@ -299,15 +356,37 @@ export function saveStaffSession(account: Pick<StaffAccount, 'id' | 'name' | 'us
 }
 
 export function readStaffSession(): StaffSession | null {
-	const session = readJson<StaffSession | null>(STAFF_SESSION_STORAGE_KEY, null);
+	if (typeof window === 'undefined') return null;
 
-	if (!session?.id || !session?.username) return null;
-	return session;
+	try {
+		const rawValue = window.localStorage.getItem(STAFF_SESSION_STORAGE_KEY);
+		if (!rawValue) return null;
+
+		const session = decodeStoredJson<StaffSession>(rawValue);
+		if (!session?.id || !session?.username) throw new Error('Invalid staff session');
+		return session;
+	} catch {
+		// If parsing the stored session fails, remove only the corrupted staff session
+		// entry and the client session cookie. Do NOT clear all localStorage —
+		// that was destructive and removed unrelated persisted data.
+		try {
+			window.localStorage.removeItem(STAFF_SESSION_STORAGE_KEY);
+		} catch {
+			// ignore
+		}
+		try {
+			writeClientCookie(STAFF_SESSION_COOKIE, null);
+		} catch {
+			// ignore
+		}
+		return null;
+	}
 }
 
 export function clearStaffSession() {
 	if (typeof window === 'undefined') return;
 	window.localStorage.removeItem(STAFF_SESSION_STORAGE_KEY);
+	writeClientCookie(STAFF_SESSION_COOKIE, null);
 	dispatchAuthChange();
 }
 
@@ -319,7 +398,26 @@ export function markAdminSessionActive() {
 
 export function hasAdminSession() {
 	if (typeof window === 'undefined') return false;
-	return Boolean(window.localStorage.getItem(ADMIN_SESSION_STORAGE_KEY));
+	try {
+		const rawValue = window.localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+		if (!rawValue) return false;
+
+		const issuedAt = new Date(rawValue).getTime();
+		if (!Number.isFinite(issuedAt)) {
+			window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+			return false;
+		}
+
+		const isFresh = Date.now() - issuedAt < 24 * 60 * 60 * 1000;
+		if (!isFresh) {
+			window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+			return false;
+		}
+
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export async function fetchCurrentStaffAccessMeta(): Promise<StaffAccessMeta | null> {
@@ -373,30 +471,40 @@ export async function syncLocalStaffMetaWithServer(): Promise<void> {
 
 // Admin authentication (demo/development only)
 export function authenticateAdmin(emailInput: string, passwordInput: string): boolean {
-	// Simple demo authentication - just check against demo credentials
 	const email = emailInput.trim().toLowerCase();
 	const password = passwordInput.trim();
-	
-	// Demo admin credentials
-	return email === 'admin@fscomms.io' && password === 'admin123';
+
+	if (!email || !password || typeof window === 'undefined') return false;
+
+	try {
+		const request = new XMLHttpRequest();
+		request.open('POST', '/api/auth/login', false);
+		request.setRequestHeader('Content-Type', 'application/json');
+		request.send(JSON.stringify({ email, password, role: 'admin' }));
+
+		if (request.status < 200 || request.status >= 300) return false;
+
+		const response = JSON.parse(request.responseText) as { success?: boolean };
+		return response.success === true;
+	} catch {
+		return false;
+	}
 }
 
 export function saveAdminSession(): void {
 	if (typeof window === 'undefined') return;
 	markAdminSessionActive();
-	window.localStorage.setItem('admin-email', 'admin@fscomms.io');
 	dispatchAuthChange();
 }
 
 export function clearAdminSession(): void {
 	if (typeof window === 'undefined') return;
 	window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
-	window.localStorage.removeItem('admin-email');
 	dispatchAuthChange();
 }
 
 export function readAdminEmail(): string | null {
 	if (typeof window === 'undefined') return null;
-	return window.localStorage.getItem('admin-email') ?? null;
+	return null;
 }
 

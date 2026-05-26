@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AdminShell } from '../../../../components/admin-shell';
+import { useRouter } from 'next/navigation';
+import { readStaffSession, hasAdminSession } from '../../../../lib/staff-auth';
+import { AdminShell, useWorkspaceMode } from '../../../../components/admin-shell';
 import { DashboardMetricsEditor } from '../../../../components/dashboard-metrics-editor';
 import { DashboardSummaryCharts } from '../../../../components/dashboard-summary-charts';
 import { LEDGER_STORAGE_EVENT, SALES_BILLS_STORAGE_KEY, readStoredArray, type SalesBillLike } from '../../../../lib/ledger-store';
@@ -42,6 +44,16 @@ const downloadText = (fileName: string, content: string, mimeType: string) => {
 };
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
+  const mode = useWorkspaceMode();
+
+  useEffect(() => {
+    const staff = readStaffSession();
+    if (mode !== 'staff' && !staff && !hasAdminSession()) {
+      router.push('/login');
+    }
+  }, [mode, router]);
+
   const [salesBills, setSalesBills] = useState<RecentInvoiceRow[]>([]);
 
   useEffect(() => {

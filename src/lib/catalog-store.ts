@@ -1,3 +1,5 @@
+import { emitAppActionSuccess, type AppWriteOptions } from './app-feedback';
+
 export const CATALOG_CATEGORIES_STORAGE_KEY = 'fs-communication:product-categories';
 export const CATALOG_PRODUCTS_STORAGE_KEY = 'fs-communication:products';
 export const CATALOG_LISTS_STORAGE_KEY = 'fs-communication:product-lists';
@@ -101,8 +103,7 @@ export function readStoredValue<T>(storageKey: string): T | null {
     return null;
   }
 }
-
-export function writeStoredArray<T>(storageKey: string, value: T[]) {
+export function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
   if (typeof window === 'undefined') return;
 
   window.localStorage.setItem(storageKey, JSON.stringify(value));
@@ -113,9 +114,10 @@ export function writeStoredArray<T>(storageKey: string, value: T[]) {
     // ignore
   }
   window.dispatchEvent(new Event(CATALOG_STORAGE_EVENT));
+  if (!options?.silent) emitAppActionSuccess(storageKey);
 }
 
-export function writeStoredValue<T>(storageKey: string, value: T) {
+export function writeStoredValue<T>(storageKey: string, value: T, options?: AppWriteOptions) {
   if (typeof window === 'undefined') return;
 
 
@@ -127,4 +129,5 @@ export function writeStoredValue<T>(storageKey: string, value: T) {
     // ignore
   }
   window.dispatchEvent(new Event(CATALOG_STORAGE_EVENT));
+  if (!options?.silent) emitAppActionSuccess(storageKey);
 }

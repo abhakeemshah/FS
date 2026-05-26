@@ -1,9 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { jwtVerify } from '../../../../lib/jwt';
 import fs from 'fs';
 import path from 'path';
 
 export async function POST(req: NextRequest) {
   try {
+    const cookieStore = await cookies();
+    const authToken = cookieStore.get('auth-token')?.value;
+
+    if (!authToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (!secret) {
+      return NextResponse.json({ error: 'Server auth secret is not configured' }, { status: 500 });
+    }
+
+    try {
+      const payload = jwtVerify(authToken, secret);
+      if (payload.role !== 'admin') {
+        return NextResponse.json({ error: 'Only admins can publish staff access data' }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
     const body = await req.json();
     const map = body?.accessMetaMap;
     if (!map || typeof map !== 'object') {

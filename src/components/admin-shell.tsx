@@ -1,24 +1,52 @@
-'use client';
+"use client";
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { markAdminSessionActive } from '../lib/staff-auth';
+import { readStaffSession, hasAdminSession, STAFF_AUTH_EVENT } from '../lib/staff-auth';
+import { clearAdminSession, clearStaffSession, markAdminSessionActive } from '../lib/staff-auth';
 
 type AdminSection = 'dashboard' | 'sales' | 'products' | 'purchases' | 'payments' | 'parties' | 'reports' | 'settings' | 'staff';
 
-const navItems: Array<{ key: AdminSection; label: string; icon: string; href: string }> = [
+type WorkspaceMode = 'admin' | 'staff';
+
+const WorkspaceModeContext = createContext<WorkspaceMode>('admin');
+
+export function WorkspaceModeProvider({ mode, children }: { mode: WorkspaceMode; children: ReactNode }) {
+  return <WorkspaceModeContext.Provider value={mode}>{children}</WorkspaceModeContext.Provider>;
+}
+
+export function useWorkspaceMode() {
+  return useContext(WorkspaceModeContext);
+}
+
+const adminNavItems: Array<{ key: AdminSection; label: string; icon: string; href: string }> = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/login/admin/dashboard' },
   { key: 'sales', label: 'Sales', icon: 'payments', href: '/login/admin/sales/invoices' },
   { key: 'products', label: 'Products', icon: 'inventory_2', href: '/login/admin/products' },
   { key: 'purchases', label: 'Purchases', icon: 'shopping_cart', href: '/login/admin/purchases' },
   { key: 'payments', label: 'Payments', icon: 'account_balance_wallet', href: '/login/admin/payments' },
   { key: 'reports', label: 'Reports', icon: 'analytics', href: '/login/admin/reports' },
+  { key: 'settings', label: 'Settings', icon: 'settings', href: '/login/admin/settings' },
 ];
 
-const partyNavItems = [
+const staffNavItems: Array<{ key: AdminSection; label: string; icon: string; href: string }> = [
+  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/login/staff/dashboard' },
+  { key: 'sales', label: 'Sales', icon: 'payments', href: '/login/staff/sales' },
+  { key: 'products', label: 'Products', icon: 'inventory_2', href: '/login/staff/products' },
+  { key: 'purchases', label: 'Purchases', icon: 'shopping_cart', href: '/login/staff/purchases' },
+  { key: 'payments', label: 'Payments', icon: 'account_balance_wallet', href: '/login/staff/payments' },
+  { key: 'reports', label: 'Reports', icon: 'analytics', href: '/login/staff/reports' },
+];
+
+const adminPartyNavItems = [
   { key: 'customers', label: 'Customers', href: '/login/admin/parties/customers' },
   { key: 'suppliers', label: 'Suppliers', href: '/login/admin/parties/suppliers' },
+];
+
+const staffPartyNavItems = [
+	{ key: 'customers', label: 'Customers', href: '/login/staff/parties/customers' },
+	{ key: 'suppliers', label: 'Suppliers', href: '/login/staff/parties/suppliers' },
 ];
 
 type AdminShellContextValue = {
@@ -51,17 +79,28 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const mode = useContext(WorkspaceModeContext);
   const [isCollapsed, setIsCollapsed] = useState(sidebarCollapsedPreference ?? false);
   const [isReady, setIsReady] = useState(sidebarCollapsedPreference !== null);
   const [isPartiesMenuOpen, setIsPartiesMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [adminName, setAdminName] = useState('Admin User');
+  const [isAdminActive, setIsAdminActive] = useState(false);
+  const navItems = mode === 'staff' ? staffNavItems : adminNavItems;
+  const partyNavItems = mode === 'staff' ? staffPartyNavItems : adminPartyNavItems;
+  const sidebarTitle = mode === 'staff' ? 'Staff Panel' : 'Admin Panel';
+  const sidebarSubtitle = mode === 'staff' ? 'Operational workspace' : 'Precision Curator Control';
+  const roleLabel = mode === 'staff' ? 'Staff Member' : 'Administrator';
 
   const handleLogout = () => {
-    // Clear admin session
-    window.localStorage.removeItem('admin-session-active');
+    if (mode === 'staff') {
+      clearStaffSession();
+      router.push('/login');
+      return;
+    }
+
+    clearAdminSession();
     window.localStorage.removeItem('admin-sidebar-collapsed');
-    // Redirect to login
     router.push('/login/admin');
   };
 
@@ -105,23 +144,57 @@ export function AdminShell({
   }, [isCollapsed, isReady]);
 
   useEffect(() => {
-    setIsPartiesMenuOpen(Boolean(pathname?.startsWith('/login/admin/parties')));
-  }, [pathname]);
+    const partiesPathPrefix = mode === 'staff' ? '/login/staff/parties' : '/login/admin/parties';
+    setIsPartiesMenuOpen(Boolean(pathname?.startsWith(partiesPathPrefix)));
+  }, [pathname, mode]);
 
   useEffect(() => {
-    if (activateSession) {
+    if (activateSession && mode === 'admin') {
       markAdminSessionActive();
     }
-  }, [activateSession]);
+  }, [activateSession, mode]);
+
+  // Track admin-session presence on the client to avoid reading localStorage during render
+  useEffect(() => {
+    const updateAdmin = () => setIsAdminActive(hasAdminSession());
+    updateAdmin();
+    window.addEventListener('storage', updateAdmin);
+    window.addEventListener(STAFF_AUTH_EVENT, updateAdmin as EventListener);
+    return () => {
+      window.removeEventListener('storage', updateAdmin);
+      window.removeEventListener(STAFF_AUTH_EVENT, updateAdmin as EventListener);
+    };
+  }, []);
+
+  // Prevent staff users from directly accessing admin routes (client-only guard)
+  useEffect(() => {
+    const check = () => {
+      const staff = readStaffSession();
+      // If a staff session exists but no admin session is active,
+      // navigate away to the login page (logic-only guard).
+      if (mode !== 'staff' && staff && !hasAdminSession()) {
+        router.push('/login');
+      }
+    };
+
+    check();
+    window.addEventListener('storage', check);
+    window.addEventListener(STAFF_AUTH_EVENT, check as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', check);
+      window.removeEventListener(STAFF_AUTH_EVENT, check as EventListener);
+    };
+  }, [router]);
 
   const collapsed = isReady ? isCollapsed : false;
   const sidebarIconClassName = `material-symbols-outlined flex h-5 w-5 items-center justify-center rounded-md bg-slate-100/80 text-[12px] leading-none text-slate-500 transition-colors group-hover:bg-blue-50 group-hover:text-blue-600 group-active:bg-blue-100 group-active:text-blue-700`;
 
   return (
     <AdminShellContext.Provider value={{ isCollapsed }}>
-      <div className="flex min-h-screen bg-slate-50">
+      <div className="flex min-h-screen flex-col bg-slate-50 lg:flex-row">
       <aside
-        className={`h-screen fixed left-0 top-0 bg-white flex flex-col border-r border-slate-200 p-3 text-xs shadow-[0_6px_24px_rgba(15,23,42,0.06)] ${
+        className={`fixed left-0 top-0 z-20 flex h-screen flex-col border-r border-slate-200 bg-white p-3 text-xs shadow-[0_6px_24px_rgba(15,23,42,0.06)] overflow-y-auto hide-scrollbar pb-6 ${
           isReady ? 'transition-[width] duration-150 ease-out' : ''
         } ${
           collapsed ? 'w-20' : 'w-56'
@@ -131,10 +204,10 @@ export function AdminShell({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h2 className={`font-['Manrope'] font-black text-slate-900 tracking-tighter ${collapsed ? 'text-sm' : 'text-xl'}`}>
-                {collapsed ? 'AP' : 'Admin Panel'}
+                {collapsed ? (mode === 'staff' ? 'SP' : 'AP') : sidebarTitle}
               </h2>
               {!collapsed ? (
-                <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1">Precision Curator Control</p>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1">{sidebarSubtitle}</p>
               ) : null}
             </div>
             <button
@@ -225,48 +298,33 @@ export function AdminShell({
             </div>
           ) : null}
 
-          <Link
-            href="/login/admin/settings"
-            title={collapsed ? 'Settings' : undefined}
-            className={`group ${
-              active === 'settings'
-                ? `rounded-lg border border-blue-200 bg-blue-50 py-2 mb-1.5 flex items-center font-bold text-blue-800 shadow-sm transition-all duration-200 hover:scale-[1.01] active:scale-[0.98] ${
-                    collapsed ? 'px-2 justify-center gap-0' : 'px-3 gap-2.5'
-                  }`
-                : `rounded-lg border border-transparent py-2 mb-1.5 flex items-center text-slate-500 transition-all duration-200 hover:scale-[1.01] hover:border-blue-100 hover:bg-white hover:text-blue-600 hover:shadow-md active:scale-[0.98] ${
-                    collapsed ? 'px-2 justify-center gap-0' : 'px-3 gap-2.5'
-                  }`
-            }`}
-          >
-            <span className={sidebarIconClassName}>settings</span>
-            {!collapsed ? <span>Settings</span> : null}
-          </Link>
-
-          <Link
-            href="/login/admin/staff"
-            title={collapsed ? 'Staff' : undefined}
-            className={`group ${
-              active === 'staff'
-                ? `rounded-lg border border-blue-200 bg-blue-50 py-2 mb-1.5 flex items-center font-bold text-blue-800 shadow-sm transition-all duration-200 hover:scale-[1.01] active:scale-[0.98] ${
-                    collapsed ? 'px-2 justify-center gap-0' : 'px-3 gap-2.5'
-                  }`
-                : `rounded-lg border border-transparent py-2 mb-1.5 flex items-center text-slate-500 transition-all duration-200 hover:scale-[1.01] hover:border-blue-100 hover:bg-white hover:text-blue-600 hover:shadow-md active:scale-[0.98] ${
-                    collapsed ? 'px-2 justify-center gap-0' : 'px-3 gap-2.5'
-                  }`
-            }`}
-          >
-            <span className={sidebarIconClassName}>badge</span>
-            {!collapsed ? <span>Staff</span> : null}
-          </Link>
+          {mode === 'admin' && isAdminActive ? (
+            <Link
+              href="/login/admin/staff"
+              title={collapsed ? 'Staff' : undefined}
+              className={`group ${
+                active === 'staff'
+                  ? `rounded-lg border border-blue-200 bg-blue-50 py-2 mb-1.5 flex items-center font-bold text-blue-800 shadow-sm transition-all duration-200 hover:scale-[1.01] active:scale-[0.98] ${
+                      collapsed ? 'px-2 justify-center gap-0' : 'px-3 gap-2.5'
+                    }`
+                  : `rounded-lg border border-transparent py-2 mb-1.5 flex items-center text-slate-500 transition-all duration-200 hover:scale-[1.01] hover:border-blue-100 hover:bg-white hover:text-blue-600 hover:shadow-md active:scale-[0.98] ${
+                      collapsed ? 'px-2 justify-center gap-0' : 'px-3 gap-2.5'
+                    }`
+              }`}
+            >
+              <span className={sidebarIconClassName}>badge</span>
+              {!collapsed ? <span>Staff</span> : null}
+            </Link>
+          ) : null}
         </nav>
       </aside>
 
-      <main className={`flex-1 flex flex-col min-h-screen ${isReady ? 'transition-[margin-left] duration-150 ease-out' : ''} ${collapsed ? 'ml-20' : 'ml-56'}`}>
-        <header className="top-0 sticky z-10 bg-white flex justify-between items-center px-5 py-0 w-full border-b border-slate-200 h-10">
-          <div className="flex items-center gap-2">
+      <main className={`flex min-h-screen min-w-0 flex-1 flex-col ${isReady ? 'transition-[margin-left] duration-150 ease-out' : ''} ${collapsed ? 'ml-20' : 'ml-56'}`}>
+        <header className="sticky top-0 z-10 flex h-auto w-full flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-5 lg:h-10 lg:flex-nowrap lg:py-0">
+          <div className="flex min-w-0 items-center gap-2">
             <span className="text-lg font-extrabold tracking-tight text-slate-900">{title}</span>
           </div>
-          <div className="flex items-center gap-2 relative">
+          <div className="relative flex items-center gap-2">
             <button 
               className="hover:bg-blue-50 rounded-full p-1.5 border border-slate-200 transition-all duration-150"
               type="button"
@@ -290,17 +348,17 @@ export function AdminShell({
                 <div className="px-4 py-3 border-b border-slate-100">
                   <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">Account</p>
                   <p className="text-sm font-bold text-slate-900 mt-1">{adminName}</p>
-                  <p className="text-xs text-slate-500">Administrator</p>
+                  <p className="text-xs text-slate-500">{roleLabel}</p>
                 </div>
                 <button
                   onClick={() => {
                     handleLogout();
                     setIsProfileMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2.5 text-left text-sm font-semibold text-red-700 hover:bg-red-50 transition-colors flex items-center gap-2 border-t border-slate-100"
+                  className="mx-3 my-3 inline-flex w-auto items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 hover:shadow active:translate-y-0 active:scale-95"
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[16px]">logout</span>
+                  <span className="material-symbols-outlined text-[14px]">logout</span>
                   <span>Logout</span>
                 </button>
               </div>
@@ -308,7 +366,7 @@ export function AdminShell({
           </div>
         </header>
 
-        <div className="p-2 pt-2 space-y-3 max-w-[1500px] mx-auto w-full">{children}</div>
+        <div className="mx-auto w-full max-w-[1500px] space-y-3 p-2 pt-2">{children}</div>
       </main>
       </div>
     </AdminShellContext.Provider>

@@ -13,7 +13,33 @@ export async function GET(_req: NextRequest) {
 			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		}
 
-		const payload = jwtVerify(authToken, process.env.NEXTAUTH_SECRET || 'your-secret-key');
+		const secret = process.env.NEXTAUTH_SECRET;
+		if (!secret) {
+			return NextResponse.json({ error: 'Server auth secret is not configured' }, { status: 500 });
+		}
+
+		const payload = jwtVerify(authToken, secret);
+
+		if (payload.role === 'admin') {
+			const configuredAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+			if (!configuredAdminEmail) {
+				return NextResponse.json({ error: 'Admin authentication is not configured' }, { status: 500 });
+			}
+			const staffAccessMeta = normalizeStaffAccessMeta(createDefaultStaffAccessMeta());
+
+			return NextResponse.json({
+				success: true,
+				user: {
+					id: payload.id,
+					email: configuredAdminEmail,
+					name: 'Administrator',
+					role: 'admin',
+					staffAccessMeta,
+				},
+				staffAccessMeta,
+			});
+		}
+
 		const user = await prisma.user.findUnique({
 			where: { id: payload.id },
 			select: {

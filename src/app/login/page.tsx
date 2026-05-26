@@ -3,14 +3,16 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authenticateAdmin, saveAdminSession, authenticateStaff, saveStaffSession } from '../../lib/staff-auth';
+import { authenticateStaff, saveAdminSession, saveStaffSession } from '../../lib/staff-auth';
+import { BUSINESS_PROFILE } from '../../lib/business-profile';
+import { useAppFeedback } from '../../components/app-feedback';
 
 export default function LoginPage() {
   return (
     <>
       <header className="bg-white/75 backdrop-blur-xl fixed top-0 w-full z-50 shadow-sm shadow-indigo-900/5 border-b border-slate-200/60">
         <div className="flex items-center justify-between px-4 py-2.5 w-full max-w-7xl mx-auto">
-          <div className="text-sm font-semibold text-indigo-900 tracking-tight font-['Manrope']">FS Communication</div>
+          <div className="text-sm font-semibold text-indigo-900 tracking-tight font-['Manrope']">{BUSINESS_PROFILE.shopName}</div>
           <Link href="/" className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">
             Back
           </Link>
@@ -46,22 +48,16 @@ export default function LoginPage() {
 
 function RightPanel() {
   const [role, setRole] = useState<'admin' | 'staff'>('admin');
-  const [email, setEmail] = useState('admin@fscomms.io');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { withLoading } = useAppFeedback();
 
   const selectRole = (r: 'admin' | 'staff') => {
     setError('');
     setRole(r);
-    if (r === 'admin') {
-      setEmail('admin@fscomms.io');
-      setPassword('admin123');
-    } else {
-      setEmail('staff@fscomms.io');
-      setPassword('staff123');
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,25 +65,73 @@ function RightPanel() {
     setLoading(true);
     setError('');
     try {
-      if (role === 'admin') {
-        if (authenticateAdmin(email, password)) {
-          saveAdminSession();
-          router.push('/login/admin/dashboard');
-        } else {
-          setError('Invalid admin credentials');
-        }
-      } else if (role === 'staff') {
-        const account = authenticateStaff(email, password);
-        if (account) {
-          saveStaffSession({ id: account.id, name: account.name, username: account.username });
+      await withLoading(
+        async () => {
+          if (role === 'staff') {
+            const localStaff = authenticateStaff(email, password);
+            if (localStaff) {
+              saveStaffSession({ id: localStaff.id, name: localStaff.name, username: localStaff.username });
+              router.push('/login/staff/dashboard');
+              return;
+            }
+          }
+
+          const resp = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, role }),
+            credentials: 'include',
+          });
+
+          const contentType = resp.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            const raw = await resp.text();
+            console.error('Login endpoint returned non-JSON response', {
+              status: resp.status,
+              contentType,
+              preview: raw.slice(0, 200),
+            });
+            setError('Server returned an unexpected response. Please try again.');
+            throw new Error('Unexpected response');
+          }
+
+          const data = await resp.json();
+          if (!resp.ok || !data?.success) {
+            if (role === 'staff') {
+              const localStaff = authenticateStaff(email, password);
+              if (localStaff) {
+                saveStaffSession({ id: localStaff.id, name: localStaff.name, username: localStaff.username });
+                router.push('/login/staff/dashboard');
+                return;
+              }
+            }
+
+            setError(data?.error || 'Invalid credentials');
+            throw new Error(data?.error || 'Invalid credentials');
+          }
+
+          if (role === 'admin') {
+            saveAdminSession();
+            router.push('/login/admin/dashboard');
+            return;
+          }
+
+          const user = data.user;
+          if (!user?.id || !user?.email) {
+            setError('Invalid server response. Please try again.');
+            throw new Error('Invalid server response');
+          }
+
+          saveStaffSession({ id: user.id, name: user.name, username: user.email });
           router.push('/login/staff/dashboard');
-        } else {
-          setError('Invalid staff credentials');
-        }
-      }
+        },
+        { loadingLabel: 'Signing in...', successMessage: 'Signed in' },
+      );
     } catch (err) {
       console.error(err);
-      setError('An error occurred.');
+      if (!error) {
+        setError('An error occurred.');
+      }
     } finally {
       setLoading(false);
     }

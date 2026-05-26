@@ -65,6 +65,33 @@ h3,
   border-radius: 10px;
 }
 
+/* Hide scrollbar visually but keep scrolling available */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Global hide-scrollbars flag: apply to `body` or `html` to hide all scrollbars visually */
+.hide-scrollbars-global,
+.hide-scrollbars-global *,
+html.hide-scrollbars-global,
+html.hide-scrollbars-global *,
+body.hide-scrollbars-global,
+body.hide-scrollbars-global * {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+html.hide-scrollbars-global *::-webkit-scrollbar,
+body.hide-scrollbars-global *::-webkit-scrollbar,
+.hide-scrollbars-global *::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 .font-body {
   font-family: 'Inter', sans-serif;
 }
@@ -186,6 +213,28 @@ h3,
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastDrop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.98);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  85% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.98);
   }
 }
 

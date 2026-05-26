@@ -277,7 +277,7 @@ export function DashboardMetricsEditor() {
                       setValues((prev) => ({ ...prev, [metric.key]: event.target.value }));
                     }}
                     onFocus={() => setEditingKey(metric.key)}
-                    className={`w-full appearance-none border-0 bg-transparent px-0 py-1.5 font-extrabold leading-none font-['Manrope'] text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0 ${metric.key === 'total-payables' ? 'text-5xl' : 'text-4xl'}`}
+                    className={`w-full appearance-none border-0 bg-transparent px-0 py-1.5 font-extrabold leading-none font-['Manrope'] text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0 ${metric.key === 'total-payables' ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'}`}
                     type="text"
                   />
                   {isEditing ? (
@@ -291,7 +291,7 @@ export function DashboardMetricsEditor() {
                   ) : null}
                 </div>
               ) : (
-                <h3 className={`font-extrabold leading-none font-['Manrope'] text-slate-900 ${metric.key === 'total-payables' ? 'text-5xl' : 'text-4xl'}`}>{value}</h3>
+                <h3 className={`font-extrabold leading-none font-['Manrope'] text-slate-900 ${metric.key === 'total-payables' ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'}`}>{value}</h3>
               )}
             </div>
           );

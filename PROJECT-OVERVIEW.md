@@ -1,4 +1,4 @@
-# FS Communication Project Overview
+# FS Mobile Accessories Project Overview
 
 This project is a simple tech products store design.
 

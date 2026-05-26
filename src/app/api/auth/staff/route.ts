@@ -4,6 +4,22 @@ import { hashPassword } from '../../../../lib/auth';
 import { cookies } from 'next/headers';
 import { jwtVerify } from '../../../../lib/jwt';
 
+function requireAdminSecret() {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error('Server auth secret is not configured');
+  }
+  return secret;
+}
+
+function verifyAdminSession(authToken: string) {
+  const payload = jwtVerify(authToken, requireAdminSecret());
+  if (payload.role !== 'admin') {
+    throw new Error('Only admins can perform this action');
+  }
+  return payload;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -18,18 +34,9 @@ export async function POST(req: NextRequest) {
 
     // Verify token and check if admin
     try {
-      const payload = jwtVerify(authToken, process.env.NEXTAUTH_SECRET || 'your-secret-key');
-      if (payload.role !== 'admin') {
-        return NextResponse.json(
-          { error: 'Only admins can create staff accounts' },
-          { status: 403 }
-        );
-      }
+      verifyAdminSession(authToken);
     } catch {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     const { name, email, password } = await req.json();
@@ -106,18 +113,9 @@ export async function GET(req: NextRequest) {
 
     // Verify token and check if admin
     try {
-      const payload = jwtVerify(authToken, process.env.NEXTAUTH_SECRET || 'your-secret-key');
-      if (payload.role !== 'admin') {
-        return NextResponse.json(
-          { error: 'Only admins can view staff accounts' },
-          { status: 403 }
-        );
-      }
+      verifyAdminSession(authToken);
     } catch {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     // Get all staff accounts
@@ -156,10 +154,7 @@ export async function PATCH(req: NextRequest) {
 
     // Verify token and check if admin
     try {
-      const payload = jwtVerify(authToken, process.env.NEXTAUTH_SECRET || 'your-secret-key');
-      if (payload.role !== 'admin') {
-        return NextResponse.json({ error: 'Only admins can update staff access' }, { status: 403 });
-      }
+      verifyAdminSession(authToken);
     } catch {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }

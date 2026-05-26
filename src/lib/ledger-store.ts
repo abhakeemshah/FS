@@ -1,3 +1,5 @@
+import { emitAppActionSuccess, type AppWriteOptions } from './app-feedback';
+
 export type LedgerDirection = 'Incoming' | 'Outgoing';
 
 export const SALES_BILLS_STORAGE_KEY = 'fs-communication:sales-bills';
@@ -13,6 +15,7 @@ export type SalesBillLike = {
 	customerContact: string;
 	paymentMethod: string;
 	total: number;
+	recordedBy?: string;
 };
 
 export type PurchaseRecordLike = {
@@ -28,6 +31,7 @@ export type PurchaseRecordLike = {
 	transportCost: number;
 	notes: string;
 	total: number;
+	recordedBy?: string;
 };
 
 export type LedgerPaymentRecord = {
@@ -40,6 +44,7 @@ export type LedgerPaymentRecord = {
 	time: string;
 	notes: string;
 	createdAt: string;
+	recordedBy?: string;
 };
 
 export function readStoredArray<T>(storageKey: string): T[] {
@@ -55,12 +60,12 @@ export function readStoredArray<T>(storageKey: string): T[] {
 		return [];
 	}
 }
-
-export function writeStoredArray<T>(storageKey: string, value: T[]) {
+export function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
 	if (typeof window === 'undefined') return;
 
 	window.localStorage.setItem(storageKey, JSON.stringify(value));
 	window.dispatchEvent(new Event(LEDGER_STORAGE_EVENT));
+	if (!options?.silent) emitAppActionSuccess(storageKey);
 }
 
 export function getNextPaymentSequence(records: Array<{ paymentNumber: string }>, prefix = 'PAY-') {

@@ -1,9 +1,21 @@
-'use client';
+ 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { readStaffSession, hasAdminSession } from '../../../../lib/staff-auth';
 import { AdminShell } from '../../../../components/admin-shell';
 
 export default function AdminPartiesPage() {
+	const router = useRouter();
+
+	useEffect(() => {
+		const staff = readStaffSession();
+		if (!staff && !hasAdminSession()) {
+			router.push('/login');
+		}
+	}, [router]);
+
 	return (
 		<AdminShell active="parties" title="Parties">
 			<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

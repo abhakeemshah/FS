@@ -39,8 +39,13 @@ export async function middleware(request: NextRequest) {
 
   if (isAdminPath || isStaffPath) {
     const token = request.cookies.get('auth-token')?.value;
+    const staffFallback = request.cookies.get('fs-communication:staff-session-active')?.value;
     const payload = token ? readJwtPayload(token) : null;
     const role = payload?.role;
+
+    if (isStaffPath && staffFallback) {
+      return NextResponse.next();
+    }
 
     if (!token || !token.includes('.') || !role) {
       return NextResponse.redirect(new URL('/login', request.url));

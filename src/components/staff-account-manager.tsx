@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import {
 	STAFF_AUTH_EVENT,
+	STAFF_ACCOUNTS_STORAGE_KEY,
+	STAFF_SESSION_STORAGE_KEY,
 	createStaffAccount,
 	hasAdminSession,
 } from '../lib/staff-auth';

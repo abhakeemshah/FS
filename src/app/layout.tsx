@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react';
 import './globals.css';
+import { BUSINESS_PROFILE } from '../lib/business-profile';
+import { AppFeedbackProvider } from '../components/app-feedback';
 
 export const metadata = {
-  title: 'FS Communication',
+  title: BUSINESS_PROFILE.shopName,
   description: 'Minimal finance and sales workflow dashboard.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className="scroll-smooth">
+    <html lang="en" suppressHydrationWarning className="scroll-smooth hide-scrollbars-global">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -21,8 +23,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body suppressHydrationWarning>
-        {children}
+      <body suppressHydrationWarning className="hide-scrollbars-global">
+        <AppFeedbackProvider>{children}</AppFeedbackProvider>
       </body>
     </html>
   );

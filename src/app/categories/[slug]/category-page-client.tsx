@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { categoryDetails, type CategoryDetail, type CategoryProduct } from '../../../data/categories';
 import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_STORAGE_EVENT, CATALOG_HIDDEN_CATEGORIES_KEY, readStoredArray, type CatalogCategoryRecord, type CatalogProductRecord } from '../../../lib/catalog-store';
+import { BUSINESS_PROFILE } from '../../../lib/business-profile';
 
 type CategoryViewProduct = CategoryProduct & {
   hoverImage: string;
@@ -139,7 +140,7 @@ export default function CategoryPageClient({ slug }: CategoryPageClientProps) {
       <nav className="fixed top-0 z-50 w-full border-b border-blue-200/50 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="font-bold text-blue-900">
-            FS Communication
+            {BUSINESS_PROFILE.shopName}
           </Link>
           <Link
             href="/"

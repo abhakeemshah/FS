@@ -1,6 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 type AppModalProps = {
@@ -15,14 +16,22 @@ type AppModalProps = {
 export function AppModal({ open, onClose, children, overlayClassName = '', cardClassName = '', overlayStyle }: AppModalProps) {
 	if (!open || typeof document === 'undefined') return null;
 
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') onClose();
+		};
+		document.addEventListener('keydown', onKey);
+		return () => document.removeEventListener('keydown', onKey);
+	}, [onClose]);
+
 	return createPortal(
 		<div
-			className={`app-modal-overlay fixed inset-0 z-[99999] grid place-items-center px-4 ${overlayClassName}`}
+			className={`app-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto px-3 py-4 sm:px-4 sm:py-6 ${overlayClassName}`}
 			style={overlayStyle}
 			onClick={onClose}
 		>
 			<div
-				className={`app-modal-card w-full ${cardClassName}`}
+				className={`app-modal-card w-full min-w-0 ${cardClassName}`}
 				onClick={(event) => event.stopPropagation()}
 			>
 				{children}

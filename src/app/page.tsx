@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { landingCategories } from '../data/categories';
+import { BUSINESS_PROFILE } from '../lib/business-profile';
 import {
   CATALOG_CATEGORIES_STORAGE_KEY,
   CATALOG_PRODUCTS_STORAGE_KEY,
@@ -98,7 +99,7 @@ const productCards: ProductCard[] = [
   },
 ];
 
-const quickActions = ['Headphone Type', 'Price', 'Review', 'Color', 'Material', 'Offer', 'All Filters'];
+// quickActions removed: filter buttons intentionally hidden from landing page
 const colorOptions = ['#f39b93', '#4b5563', '#cbd5c1', '#d1d5db', '#94a3b8'];
 const POPUP_ANIMATION_MS = 220;
 
@@ -215,7 +216,7 @@ function HorizontalProductScroller({
   return (
     <div className="space-y-3">
       <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{heading}</h2>
-      <div className="relative w-full max-w-full">
+                <div className="relative w-full max-w-full min-w-0">
         {canScrollLeft ? (
           <button
             aria-label={`Scroll ${heading} left`}
@@ -241,9 +242,9 @@ function HorizontalProductScroller({
           className="w-full max-w-full overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           onScroll={updateScrollState}
         >
-          <div className="flex min-w-max snap-x snap-mandatory gap-3 pr-1">
+          <div className="flex flex-nowrap gap-3 pr-1 min-w-max snap-x snap-mandatory">
             {products.map((product, index) => (
-              <article key={`${heading}-${product.name}-${index}`} data-scroll-card className="group w-[250px] shrink-0 snap-start rounded-[16px] border border-slate-100 bg-white p-2.5 shadow-[0_10px_22px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(37,99,235,0.10)] sm:w-[265px]">
+              <article key={`${heading}-${product.name}-${index}`} data-scroll-card className="group w-[265px] shrink-0 rounded-[16px] border border-slate-100 bg-white p-2.5 shadow-[0_10px_22px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(37,99,235,0.10)] snap-start">
                 <div className="group relative aspect-square overflow-hidden rounded-[12px] bg-slate-50">
                   <img alt={product.name} src={product.image} className="absolute inset-0 h-full w-full object-cover opacity-100 transition-all duration-500 group-hover:scale-105 group-hover:opacity-0" />
                   <img alt={`${product.name} alternate view`} src={product.hoverImage} className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 group-hover:scale-105 group-hover:opacity-100" />
@@ -285,8 +286,79 @@ export default function LandingPage() {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [language, setLanguage] = useState<'en' | 'ur'>('en');
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hotRightNowScrollerRef = useRef<HTMLDivElement | null>(null);
+  const shopName = BUSINESS_PROFILE.shopName;
+
+  const translations: Record<'en' | 'ur', Record<string, string>> = {
+    en: {
+      [shopName]: shopName,
+      'Search Product': 'Search Product',
+      'Login': 'Login',
+      'Categories': 'Categories',
+      'Deals': 'Deals',
+      'What\'s New': 'What\'s New',
+      'Delivery': 'Delivery',
+      'English': 'English',
+      'Urdu': 'اردو',
+      'Popular Categories': 'Popular Categories',
+      'Quick Links': 'Quick Links',
+      'Contact': 'Contact',
+      'Products': 'Products',
+      'Support': 'Support',
+      'Email': 'Email',
+      'Phone': 'Phone',
+      'Hours': 'Mon - Sat: 10:00 AM to 8:00 PM',
+      'Shop Smarter': 'Shop Smarter. Sound Better.',
+      'Premium audio': 'Premium audio products with trusted quality, fast service, and a shopping experience designed for comfort.',
+      'What\'s Hot Right Now': 'What\'s Hot Right Now',
+      'Buy Product': 'Buy Product',
+      'Buy Now': 'Buy Now',
+      'Click Buy Now': 'Click Buy Now to contact admin',
+      'All rights': 'All rights reserved.',
+    },
+    ur: {
+      [shopName]: 'ایف ایس کمیونیکیشن',
+      'Search Product': 'مصنوعات تلاش کریں',
+      'Login': 'لاگ ان',
+      'Categories': 'زمرے',
+      'Deals': 'ڈیلز',
+      'What\'s New': 'نیا کیا ہے',
+      'Delivery': 'ڈیلیوری',
+      'English': 'English',
+      'Urdu': 'اردو',
+      'Popular Categories': 'مقبول زمرے',
+      'Quick Links': 'فوری لنکس',
+      'Contact': 'رابطہ',
+      'Products': 'مصنوعات',
+      'Support': 'معاونت',
+      'Email': 'ای میل',
+      'Phone': 'فون',
+      'Hours': 'پیر - ہفتہ: صبح 10:00 سے شام 8:00 بجے تک',
+      'Shop Smarter': 'ہوشیاری سے خریداری کریں۔ بہتر آواز۔',
+      'Premium audio': 'قابل اعتماد معیار، تیز سروس اور آرام دہ شپنگ کا تجربہ کے ساتھ پریمیم آڈیو مصنوعات۔',
+      'What\'s Hot Right Now': 'اب کیا گرم ہے',
+      'Buy Product': 'مصنوع خریدیں',
+      'Buy Now': 'ابھی خریدیں',
+      'Click Buy Now': 'ایڈمن سے رابطہ کرنے کے لیے ابھی خریدیں پر کلک کریں',
+      'All rights': 'تمام حقوق محفوظ ہیں۔',
+    },
+  };
+
+  const t = (key: string): string => translations[language][key] || key;
+
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem('landing-language') as 'en' | 'ur' | null;
+    if (savedLanguage) {
+      setLanguage(savedLanguage);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('landing-language', language);
+  }, [language]);
 
   useEffect(() => {
     if (!selectedProduct || typeof document === 'undefined') return;
@@ -521,29 +593,68 @@ export default function LandingPage() {
   }, [storedCategories, storedProducts, storedHiddenCategories]);
 
   return (
-    <main className="min-h-screen bg-[#d7c0ac] text-slate-900">
+    <main className="min-h-screen w-full min-w-0 bg-[#d7c0ac] text-slate-900">
       <div className="flex min-h-screen w-full flex-col overflow-hidden bg-white">
         <div className="bg-blue-950 px-4 py-1 text-[10px] font-medium text-white/90 sm:px-6">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-2">
-              <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-bold uppercase tracking-[0.18em]">FS Communication</span>
-              <span>Get 50% Off On Selected Headphone</span>
+              <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-bold uppercase tracking-[0.18em]">{BUSINESS_PROFILE.shopName}</span>
             </p>
-            <p className="hidden sm:block">Eng ▾ · Location ▾</p>
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
+                className="text-[10px] font-medium text-white/90 hover:text-white transition-colors"
+                type="button"
+              >
+                {language === 'en' ? 'English' : 'اردو'} ▾
+              </button>
+              {isLanguageMenuOpen && (
+                <div className="absolute right-0 top-5 mt-1 w-32 bg-white rounded-md shadow-lg z-50">
+                  <button
+                    onClick={() => {
+                      setLanguage('en');
+                      setIsLanguageMenuOpen(false);
+                    }}
+                    className={`block w-full text-left px-3 py-2 text-xs font-medium ${
+                      language === 'en'
+                        ? 'bg-blue-100 text-blue-900'
+                        : 'text-slate-900 hover:bg-slate-100'
+                    } rounded-t-md transition-colors`}
+                    type="button"
+                  >
+                    English
+                  </button>
+                  <button
+                    onClick={() => {
+                      setLanguage('ur');
+                      setIsLanguageMenuOpen(false);
+                    }}
+                    className={`block w-full text-left px-3 py-2 text-xs font-medium ${
+                      language === 'ur'
+                        ? 'bg-blue-100 text-blue-900'
+                        : 'text-slate-900 hover:bg-slate-100'
+                    } rounded-b-md transition-colors`}
+                    type="button"
+                  >
+                    اردو
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <header className="border-b border-slate-100 bg-white px-4 py-2 sm:px-6">
           <nav className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-[1.05rem] font-extrabold tracking-tight text-blue-950">
-              <span>FS Communication</span>
+              <span>{BUSINESS_PROFILE.shopName}</span>
             </div>
 
             <div className="hidden items-center gap-4 pl-5 text-[12px] font-medium text-slate-700 lg:flex">
-              <a className="transition-colors hover:text-blue-700" href="#featured">Categories</a>
-              <a className="transition-colors hover:text-blue-700" href="#grid">Deals</a>
-              <a className="transition-colors hover:text-blue-700" href="#recent">What&apos;s New</a>
-              <a className="transition-colors hover:text-blue-700" href="#support">Delivery</a>
+              <a className="transition-colors hover:text-blue-700" href="#featured">{t('Categories')}</a>
+              <a className="transition-colors hover:text-blue-700" href="#grid">{t('Deals')}</a>
+              <a className="transition-colors hover:text-blue-700" href="#recent">{t('What\'s New')}</a>
+              <a className="transition-colors hover:text-blue-700" href="#support">{t('Delivery')}</a>
             </div>
 
             <div className="ml-auto flex items-center gap-2">
@@ -551,18 +662,18 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined absolute left-3 text-[15px] text-slate-400">search</span>
                 <input
                   type="search"
-                  placeholder="Search Product"
+                  placeholder={t('Search Product')}
                   className="h-9 w-[200px] rounded-full border border-slate-200 bg-slate-50 pl-9 pr-4 text-[12px] outline-none transition-colors placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
                 />
               </label>
               <Link className="rounded-full border border-blue-950 bg-blue-950 px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-blue-900" href="/login">
-                Login
+                {t('Login')}
               </Link>
             </div>
           </nav>
         </header>
 
-        <div className="flex-1 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+        <div className="flex-1 min-w-0 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
           <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_330px]" id="featured">
             <div className="min-w-0 space-y-5">
               <section className="relative overflow-hidden rounded-[18px]" style={{ backgroundColor: heroSettings.backgroundColor }}>
@@ -589,25 +700,12 @@ export default function LandingPage() {
                 </div>
               </section>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {quickActions.map((action) => (
-                  <button
-                    key={action}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:text-blue-700"
-                    type="button"
-                  >
-                    {action}
-                  </button>
-                ))}
-                <button className="ml-auto rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:text-blue-700" type="button">
-                  Sort by
-                </button>
-              </div>
+              {/* Filter buttons removed per request */}
 
               {landingSectionVisibility.hot && hotRightNowProducts.length > 0 ? (
               <section id="grid" className="min-w-0 space-y-4 overflow-hidden max-w-full">
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">What&apos;s Hot Right Now</h2>
-                <div className="relative w-full max-w-full">
+                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{t('What\'s Hot Right Now')}</h2>
+                <div className="relative w-full max-w-full min-w-0">
                   {canScrollLeft ? (
                     <button
                       aria-label="Scroll products left"
@@ -633,9 +731,9 @@ export default function LandingPage() {
                     className="w-full max-w-full overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     onScroll={updateHotRightNowScrollState}
                   >
-                  <div className="flex min-w-max snap-x snap-mandatory gap-3 pr-1">
+                  <div className="flex flex-nowrap gap-3 pr-1 min-w-max snap-x snap-mandatory">
                     {hotRightNowProducts.map((product, index) => (
-                      <article key={`hot-${product.name}-${index}`} data-hot-item className="group w-[250px] shrink-0 snap-start rounded-[16px] border border-slate-100 bg-white p-2.5 shadow-[0_10px_22px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(37,99,235,0.10)] sm:w-[265px]">
+                      <article key={`hot-${product.name}-${index}`} data-hot-item className="group w-[265px] shrink-0 rounded-[16px] border border-slate-100 bg-white p-2.5 shadow-[0_10px_22px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(37,99,235,0.10)] snap-start">
                         <div className="group relative aspect-square overflow-hidden rounded-[12px] bg-slate-50">
                           <img alt={product.name} src={product.image} className="absolute inset-0 h-full w-full object-cover opacity-100 transition-all duration-500 group-hover:scale-105 group-hover:opacity-0" />
                           <img alt={`${product.name} alternate view`} src={product.hoverImage} className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 group-hover:scale-105 group-hover:opacity-100" />
@@ -651,7 +749,7 @@ export default function LandingPage() {
                             type="button"
                             onClick={() => openProductPopup(product)}
                           >
-                            Buy Product
+                            {t('Buy Product')}
                           </button>
                         </div>
                       </article>
@@ -687,7 +785,7 @@ export default function LandingPage() {
 
             <aside className="space-y-5 xl:col-span-2" id="support">
               <div className="rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-                <h3 className="text-base font-extrabold text-slate-900">Popular Categories</h3>
+                <h3 className="text-base font-extrabold text-slate-900">{t('Popular Categories')}</h3>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                   {landingCategoryCards.map((category) => (
                     <Link
@@ -716,33 +814,33 @@ export default function LandingPage() {
         <footer className="border-t border-blue-900/20 bg-[linear-gradient(120deg,#0f1e3a_0%,#102f68_55%,#17408d_100%)] px-4 py-8 text-white sm:px-6 lg:px-8">
           <div className="grid gap-8 md:grid-cols-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-100">FS Communication</p>
-              <h3 className="mt-2 text-2xl font-extrabold tracking-tight">Shop Smarter. Sound Better.</h3>
-              <p className="mt-3 max-w-sm text-sm leading-6 text-blue-100/95">Premium audio products with trusted quality, fast service, and a shopping experience designed for comfort.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-100">{BUSINESS_PROFILE.shopName}</p>
+              <h3 className="mt-2 text-2xl font-extrabold tracking-tight">{t('Shop Smarter')}</h3>
+              <p className="mt-3 max-w-sm text-sm leading-6 text-blue-100/95">{t('Premium audio')}</p>
             </div>
 
             <div>
-              <p className="text-sm font-bold text-white">Quick Links</p>
+              <p className="text-sm font-bold text-white">{t('Quick Links')}</p>
               <div className="mt-3 grid gap-2 text-sm text-blue-100">
-                <a className="transition-colors hover:text-white" href="#grid">Products</a>
-                <a className="transition-colors hover:text-white" href="#featured">Categories</a>
-                <a className="transition-colors hover:text-white" href="#support">Support</a>
-                <Link className="transition-colors hover:text-white" href="/login">Login</Link>
+                <a className="transition-colors hover:text-white" href="#grid">{t('Products')}</a>
+                <a className="transition-colors hover:text-white" href="#featured">{t('Categories')}</a>
+                <a className="transition-colors hover:text-white" href="#support">{t('Support')}</a>
+                <Link className="transition-colors hover:text-white" href="/login">{t('Login')}</Link>
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-bold text-white">Contact</p>
+              <p className="text-sm font-bold text-white">{t('Contact')}</p>
               <div className="mt-3 grid gap-2 text-sm text-blue-100">
-                <p>Email: support@fscommunication.com</p>
-                <p>Phone: +92 300 0000000</p>
-                <p>Mon - Sat: 10:00 AM to 8:00 PM</p>
+                <p>{t('Email')}: {BUSINESS_PROFILE.email}</p>
+                <p>{t('Phone')}: {BUSINESS_PROFILE.contactNumber}</p>
+                <p>{t('Hours')}</p>
               </div>
             </div>
           </div>
 
           <div className="mt-7 border-t border-white/15 pt-4 text-xs text-blue-100">
-            <p>© {new Date().getFullYear()} FS Communication. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} {BUSINESS_PROFILE.shopName}. {t('All rights')} </p>
           </div>
         </footer>
 

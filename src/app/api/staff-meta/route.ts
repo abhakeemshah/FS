@@ -18,11 +18,7 @@ export async function GET(req: NextRequest) {
     if (userId) {
       user = await prisma.user.findUnique({ where: { id: userId } });
     } else if (username) {
-      user = await prisma.user.findFirst({ where: { username: username } }).catch(() => null);
-      if (!user) {
-        // fallback to email match
-        user = await prisma.user.findFirst({ where: { email: username } }).catch(() => null);
-      }
+      user = await prisma.user.findFirst({ where: { email: username } }).catch(() => null);
     }
 
     const dataDir = path.join(process.cwd(), 'data');

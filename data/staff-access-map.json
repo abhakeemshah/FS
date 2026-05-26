@@ -1,32 +1,21 @@
 {
-  "sabir": {
+  "saad@saa.com": {
     "role": "cashier",
     "status": "active",
     "permissions": {
-      "sales": "view",
-      "purchases": "edit",
-      "payments": "edit",
-      "parties": "edit",
-      "reports": "edit",
-      "settings": "none",
-      "staff": "none"
-    },
-    "lastUpdatedAt": "2026-05-17T22:18:55.205Z"
-  },
-  "staff@fscomms.io": {
-    "role": "cashier",
-    "status": "active",
-    "permissions": {
-      "sales": "view",
+      "dashboard": "edit",
+      "sales": "edit",
+      "products": "none",
       "purchases": "view",
-      "payments": "view",
+      "payments": "edit",
       "parties": "none",
-      "reports": "none"
+      "reports": "none",
+      "settings": "none"
     },
     "allowedSettings": [
       "profile",
       "interface"
     ],
-    "lastUpdatedAt": "2026-05-19T08:54:21.491Z"
+    "lastUpdatedAt": "2026-05-25T18:11:58.300Z"
   }
 }

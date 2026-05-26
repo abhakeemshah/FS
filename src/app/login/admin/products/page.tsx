@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminShell } from '../../../../components/admin-shell';
 import { AppModal } from '../../../../components/app-modal';
 
@@ -26,6 +26,7 @@ import {
 	type LandingHeroSettingsRecord,
 } from '../../../../lib/catalog-store';
 import { buildSeedCatalog } from '../../../../lib/seed-data';
+import { canCurrentStaffAccessModule, hasAdminSession, STAFF_AUTH_EVENT } from '../../../../lib/staff-auth';
 import { landingCategories } from '../../../../data/categories';
 
 type ProductStatus = 'active' | 'draft';
@@ -102,7 +103,10 @@ const normalizeLandingHeroForm = (settings: Partial<LandingHeroSettingsRecord> |
 	),
 });
 
-const formatMoney = (value: number) => value.toFixed(2);
+const formatMoney = (value: number | string | null | undefined) => {
+	const amount = typeof value === 'string' ? Number(value) : value;
+	return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+};
 
 const buildImageUrls = (form: ProductFormState) => [form.imageUrl, form.imageUrl2, form.imageUrl3, form.imageUrl4].map((value) => value.trim()).filter(Boolean);
 
@@ -116,7 +120,7 @@ const normalizeLandingSectionVisibility = (value: Partial<LandingSectionVisibili
 	more: value?.more !== false,
 });
 
-export default function AdminProductsPage() {
+export default function AdminProductsPage({ readOnly = false }: { readOnly?: boolean }) {
 	const [categories, setCategories] = useState<CatalogCategoryRecord[]>([]);
 	const [products, setProducts] = useState<CatalogProductRecord[]>([]);
 	const [heroForm, setHeroForm] = useState<LandingHeroFormState>(emptyLandingHeroForm());
@@ -143,6 +147,47 @@ export default function AdminProductsPage() {
 	const [productForm, setProductForm] = useState<ProductFormState>(emptyProductForm());
 	const [landingSectionVisibility, setLandingSectionVisibility] = useState<LandingSectionVisibilityRecord>(defaultLandingSectionVisibility);
 	const [notice, setNotice] = useState<string | null>(null);
+	const [confirmAction, setConfirmAction] = useState<{
+		title: string;
+		message: string;
+		onConfirm: () => void;
+	} | null>(null);
+	const feedbackReadyRef = useRef(false);
+
+	// Compute whether the current client should be allowed to perform edits.
+	const [canEdit, setCanEdit] = useState(false);
+
+	useEffect(() => {
+		const update = () => {
+			const admin = hasAdminSession();
+			const staffCanEdit = canCurrentStaffAccessModule('products', 'edit');
+			setCanEdit(Boolean(admin || staffCanEdit));
+		};
+
+		update();
+		window.addEventListener('storage', update);
+		window.addEventListener(STAFF_AUTH_EVENT, update as EventListener);
+
+		return () => {
+			window.removeEventListener('storage', update);
+			window.removeEventListener(STAFF_AUTH_EVENT, update as EventListener);
+		};
+	}, []);
+
+	const openConfirm = (title: string, message: string, onConfirm: () => void) => {
+		setConfirmAction({ title, message, onConfirm });
+	};
+
+	const closeConfirm = () => {
+		setConfirmAction(null);
+	};
+
+	const runConfirm = () => {
+		if (!confirmAction) return;
+		const action = confirmAction;
+		setConfirmAction(null);
+		action.onConfirm();
+	};
 
 	useEffect(() => {
 		const refresh = () => {
@@ -165,7 +210,7 @@ export default function AdminProductsPage() {
 			const defaultSlugs = landingCategories.map((c) => c.slug);
 			const missing = defaultSlugs.filter((s) => !storedCats.some((sc) => sc.slug === s) && !hidden.includes(s));
 			if (missing.length) {
-				writeStoredArray(CATALOG_HIDDEN_CATEGORIES_KEY, [...missing, ...hidden]);
+				writeStoredArray(CATALOG_HIDDEN_CATEGORIES_KEY, [...missing, ...hidden], { silent: !feedbackReadyRef.current });
 			}
 		} catch {
 			// ignore
@@ -230,10 +275,10 @@ export default function AdminProductsPage() {
 			sku: product.sku,
 			categoryId: product.categoryId,
 			bio: product.bio,
-			imageUrl: product.imageUrls[0] ?? '',
-			imageUrl2: product.imageUrls[1] ?? '',
-			imageUrl3: product.imageUrls[2] ?? '',
-			imageUrl4: product.imageUrls[3] ?? '',
+			imageUrl: product.imageUrls?.[0] ?? '',
+			imageUrl2: product.imageUrls?.[1] ?? '',
+			imageUrl3: product.imageUrls?.[2] ?? '',
+			imageUrl4: product.imageUrls?.[3] ?? '',
 			price: String(product.price),
 			costPrice: String(product.costPrice),
 			stock: String(product.stock),
@@ -257,7 +302,6 @@ export default function AdminProductsPage() {
 		}
 
 		const actionLabel = editingCategoryId ? 'update this category' : 'create this category';
-		if (typeof window !== 'undefined' && !window.confirm(`Do you want to ${actionLabel}?`)) return;
 
 		const exists = categories.some((category) => category.name.toLowerCase() === trimmedName.toLowerCase() && category.id !== editingCategoryId);
 		if (exists) {
@@ -279,16 +323,19 @@ export default function AdminProductsPage() {
 			? categories.map((category) => (category.id === editingCategoryId ? nextCategory : category))
 			: [nextCategory, ...categories];
 
-		writeStoredArray(CATALOG_CATEGORIES_STORAGE_KEY, nextCategories);
-		setCategoryName('');
-		setCategoryDescription('');
-		setCategoryImageUrl('');
-		setIsCategoryModalOpen(false);
-		setEditingCategoryId(null);
-		setNotice(`${editingCategoryId ? 'Category updated' : 'Category created'}: ${nextCategory.name}`);
+		openConfirm('Save category?', `Do you want to ${actionLabel}?`, () => {
+			writeStoredArray(CATALOG_CATEGORIES_STORAGE_KEY, nextCategories);
+			setCategoryName('');
+			setCategoryDescription('');
+			setCategoryImageUrl('');
+			setIsCategoryModalOpen(false);
+			setEditingCategoryId(null);
+			setNotice(`${editingCategoryId ? 'Category updated' : 'Category created'}: ${nextCategory.name}`);
+		});
 	};
 
 	const deleteCategory = (categoryId: string, categoryNameValue: string) => {
+		openConfirm('Delete category?', `Delete category "${categoryNameValue}" and all linked products?`, () => {
 		const removedProductIds = new Set(products.filter((product) => product.categoryId === categoryId).map((product) => product.id));
 
 		// capture the slug of the category being deleted so landing can hide default/demo category
@@ -332,6 +379,7 @@ export default function AdminProductsPage() {
 
 		refreshLists();
 		setNotice(`Deleted category: ${categoryNameValue}`);
+		});
 	};
 
 	const saveProduct = (event: React.FormEvent<HTMLFormElement>) => {
@@ -351,7 +399,7 @@ export default function AdminProductsPage() {
 			return;
 		}
 
-		if (typeof window !== 'undefined' && !window.confirm(`${editingProductId ? 'Update' : 'Create'} this product?`)) return;
+		
 
 		const skuTaken = products.some((product) => product.sku.toLowerCase() === sku.toLowerCase() && product.id !== editingProductId);
 		if (skuTaken) {
@@ -374,14 +422,20 @@ export default function AdminProductsPage() {
 						stock,
 						status: productForm.status,
 						showOnLanding: productForm.showOnLanding,
-							showOnExtraLanding: productForm.showOnExtraLanding,
+						showOnExtraLanding: productForm.showOnExtraLanding,
+						showOnSecondaryLanding: product.showOnSecondaryLanding ?? false,
 						updatedAt: new Date().toISOString(),
 					}
 					: product,
 			);
 
-			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, nextProducts);
-			setNotice(`Product updated: ${name}`);
+			openConfirm('Save product?', 'Update this product?', () => {
+				writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, nextProducts);
+				setNotice(`Product updated: ${name}`);
+				setIsProductModalOpen(false);
+				setEditingProductId(null);
+				setProductForm(emptyProductForm());
+			});
 		} else {
 			const now = new Date().toISOString();
 			const nextProduct: CatalogProductRecord = {
@@ -397,63 +451,67 @@ export default function AdminProductsPage() {
 				status: productForm.status,
 				showOnLanding: productForm.showOnLanding,
 				showOnExtraLanding: productForm.showOnExtraLanding,
+				showOnSecondaryLanding: false,
 				createdAt: now,
 				updatedAt: now,
 			};
 
-			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, [nextProduct, ...products]);
-			setNotice(`Product added: ${name}`);
+			openConfirm('Save product?', 'Create this product?', () => {
+				writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, [nextProduct, ...products]);
+				setNotice(`Product added: ${name}`);
+				setIsProductModalOpen(false);
+				setEditingProductId(null);
+				setProductForm(emptyProductForm());
+			});
 		}
-
-		setIsProductModalOpen(false);
-		setEditingProductId(null);
-		setProductForm(emptyProductForm());
 	};
 
 	const deleteProduct = (productId: string, productName: string) => {
-		const nextProducts = products.filter((product) => product.id !== productId);
-		writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, nextProducts);
+		openConfirm('Delete product?', `Delete product "${productName}" everywhere?`, () => {
+			const nextProducts = products.filter((product) => product.id !== productId);
+			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, nextProducts);
 
-		const nextLists = lists
-			.map((list) => ({ ...list, productIds: list.productIds.filter((id) => id !== productId) }))
-			.filter((list) => list.productIds.length > 0);
-		writeStoredArray(CATALOG_LISTS_STORAGE_KEY, nextLists);
+			const nextLists = lists
+				.map((list) => ({ ...list, productIds: list.productIds.filter((id) => id !== productId) }))
+				.filter((list) => list.productIds.length > 0);
+			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, nextLists);
 
-		if (selectedListId && !nextLists.some((list) => list.id === selectedListId)) {
-			setSelectedList(null);
-		} else {
-			refreshLists();
-		}
+			if (selectedListId && !nextLists.some((list) => list.id === selectedListId)) {
+				setSelectedList(null);
+			} else {
+				refreshLists();
+			}
 
-		setNotice(`Deleted product everywhere: ${productName}`);
+			setNotice(`Deleted product everywhere: ${productName}`);
+		});
 	};
 
 	
 
 	const toggleLanding = (productId: string) => {
-		if (typeof window !== 'undefined' && !window.confirm('Toggle whether this product shows on the homepage?')) return;
-
-		writeStoredArray(
-			CATALOG_PRODUCTS_STORAGE_KEY,
-			products.map((product) =>
-				product.id === productId
-					? { ...product, showOnLanding: !product.showOnLanding, updatedAt: new Date().toISOString() }
-					: product,
+		openConfirm('Update homepage visibility?', 'Toggle whether this product shows on the homepage?', () => {
+			writeStoredArray(
+				CATALOG_PRODUCTS_STORAGE_KEY,
+				products.map((product) =>
+					product.id === productId
+						? { ...product, showOnLanding: !product.showOnLanding, updatedAt: new Date().toISOString() }
+						: product,
 			),
-		);
+			);
+		});
 	};
 
 	const toggleExtraLanding = (productId: string) => {
-		if (typeof window !== 'undefined' && !window.confirm('Toggle whether this product shows in the second homepage list?')) return;
-
-		writeStoredArray(
-			CATALOG_PRODUCTS_STORAGE_KEY,
-			products.map((product) =>
-				product.id === productId
-					? { ...product, showOnExtraLanding: !product.showOnExtraLanding, updatedAt: new Date().toISOString() }
-					: product,
+		openConfirm('Update secondary landing visibility?', 'Toggle whether this product shows in the second homepage list?', () => {
+			writeStoredArray(
+				CATALOG_PRODUCTS_STORAGE_KEY,
+				products.map((product) =>
+					product.id === productId
+						? { ...product, showOnExtraLanding: !product.showOnExtraLanding, updatedAt: new Date().toISOString() }
+						: product,
 			),
-		);
+			);
+		});
 	};
 
 
@@ -464,6 +522,22 @@ export default function AdminProductsPage() {
 	const [editingListId, setEditingListId] = useState<string | null>(null);
 	const [listName, setListName] = useState('');
 	const [listProductIds, setListProductIds] = useState<string[]>([]);
+
+	const landingVisibilityStats = useMemo(() => {
+		const hiddenLandingProducts = products.filter((product) => !product.showOnLanding).length;
+		const hiddenExtraLandingProducts = products.filter((product) => !product.showOnExtraLanding).length;
+		const visibleLandingLists = lists.filter((list) => list.visibleOnLanding !== false && list.productIds.length > 0).length;
+		const hiddenLandingLists = lists.filter((list) => list.visibleOnLanding === false).length;
+		const emptyLandingLists = lists.filter((list) => list.productIds.length === 0).length;
+
+		return {
+			hiddenLandingProducts,
+			hiddenExtraLandingProducts,
+			visibleLandingLists,
+			hiddenLandingLists,
+			emptyLandingLists,
+		};
+	}, [lists, products]);
 
 	const refreshLists = () => {
 		setLists(readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY));
@@ -588,47 +662,48 @@ export default function AdminProductsPage() {
 	const editHotRightNowList = () => openLandingListEditor('hot');
 
 	const disableHotRightNowList = () => {
-		if (typeof window !== 'undefined' && !window.confirm('Disable "What\'s Hot Right Now" by removing its items?')) return;
-		writeStoredArray(
-			CATALOG_PRODUCTS_STORAGE_KEY,
-			products.map((product) =>
-				product.showOnLanding
-					? { ...product, showOnLanding: false, status: 'draft', updatedAt: new Date().toISOString() }
-					: product,
+		openConfirm('Disable What\'s Hot Right Now?', 'Remove its items from the homepage? This will mark the items as draft.', () => {
+			writeStoredArray(
+				CATALOG_PRODUCTS_STORAGE_KEY,
+				products.map((product) =>
+					product.showOnLanding
+						? { ...product, showOnLanding: false, status: 'draft', updatedAt: new Date().toISOString() }
+						: product,
 			),
-		);
-		setNotice('What\'s Hot Right Now disabled.');
+			);
+			setNotice('What\'s Hot Right Now disabled.');
+		});
 	};
 
 	const deleteHotRightNowList = () => {
-		if (typeof window !== 'undefined' && !window.confirm('Delete "What\'s Hot Right Now" everywhere? This will remove this section and its products from all views.')) return;
+		openConfirm('Delete What\'s Hot Right Now?', 'This will remove the section and its products from all views.', () => {
+			const removedIds = new Set(products.filter((product) => product.showOnLanding).map((product) => product.id));
+			if (removedIds.size) {
+				const nextProducts = products.filter((product) => !removedIds.has(product.id));
+				writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, nextProducts);
 
-		const removedIds = new Set(products.filter((product) => product.showOnLanding).map((product) => product.id));
-		if (removedIds.size) {
-			const nextProducts = products.filter((product) => !removedIds.has(product.id));
-			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, nextProducts);
+				const nextLists = lists
+					.map((list) => ({
+						...list,
+						productIds: list.productIds.filter((productId) => !removedIds.has(productId)),
+					}))
+					.filter((list) => list.productIds.length > 0);
+				writeStoredArray(CATALOG_LISTS_STORAGE_KEY, nextLists);
 
-			const nextLists = lists
-				.map((list) => ({
-					...list,
-					productIds: list.productIds.filter((productId) => !removedIds.has(productId)),
-				}))
-				.filter((list) => list.productIds.length > 0);
-			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, nextLists);
-
-			if (selectedListId && !nextLists.some((list) => list.id === selectedListId)) {
-				setSelectedList(null);
-			} else {
-				refreshLists();
+				if (selectedListId && !nextLists.some((list) => list.id === selectedListId)) {
+					setSelectedList(null);
+				} else {
+					refreshLists();
+				}
 			}
-		}
 
-		writeStoredValue(LANDING_SECTION_VISIBILITY_STORAGE_KEY, {
-			...landingSectionVisibility,
-			hot: false,
+			writeStoredValue(LANDING_SECTION_VISIBILITY_KEY, {
+				...landingSectionVisibility,
+				hot: false,
+			});
+
+			setNotice('What\'s Hot Right Now deleted everywhere.');
 		});
-
-		setNotice('What\'s Hot Right Now deleted everywhere.');
 	};
 
 	const editMoreFromAdminList = (list: CatalogListRecord) => {
@@ -636,36 +711,38 @@ export default function AdminProductsPage() {
 	};
 
 	const disableMoreFromAdminList = (list: CatalogListRecord) => {
-		if (typeof window !== 'undefined' && !window.confirm(`Disable "${list.name}" on landing?`)) return;
-		const existing = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY);
-		const next = existing.map((l) => (l.id === list.id ? { ...l, visibleOnLanding: false } : l));
-		writeStoredArray(CATALOG_LISTS_STORAGE_KEY, next);
-		refreshLists();
-		setNotice(`List disabled: ${list.name}`);
+		openConfirm('Disable list on landing?', `Disable "${list.name}" on landing?`, () => {
+			const existing = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY);
+			const next = existing.map((l) => (l.id === list.id ? { ...l, visibleOnLanding: false } : l));
+			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, next);
+			refreshLists();
+			setNotice(`List disabled: ${list.name}`);
+		});
 	};
 
 	const enableMoreFromAdminList = (list: CatalogListRecord) => {
-		if (typeof window !== 'undefined' && !window.confirm(`Enable "${list.name}" on landing?`)) return;
-		const existing = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY);
-		const next = existing.map((l) => (l.id === list.id ? { ...l, visibleOnLanding: true } : l));
-		writeStoredArray(CATALOG_LISTS_STORAGE_KEY, next);
-		refreshLists();
-		setNotice(`List enabled: ${list.name}`);
+		openConfirm('Enable list on landing?', `Enable "${list.name}" on landing?`, () => {
+			const existing = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY);
+			const next = existing.map((l) => (l.id === list.id ? { ...l, visibleOnLanding: true } : l));
+			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, next);
+			refreshLists();
+			setNotice(`List enabled: ${list.name}`);
+		});
 	};
 
 	const deleteMoreFromAdminList = (list: CatalogListRecord) => {
-		if (typeof window !== 'undefined' && !window.confirm(`Delete list "${list.name}" everywhere?`)) return;
+		openConfirm('Delete list everywhere?', `Delete list "${list.name}" everywhere?`, () => {
+			const removed = deleteList(list.id);
+			if (!removed) return;
 
-		const removed = deleteList(list.id);
-		if (!removed) return;
-
-		const remainingCount = lists.filter((item) => item.id !== list.id).length;
-		writeStoredValue(LANDING_SECTION_VISIBILITY_STORAGE_KEY, {
-			...landingSectionVisibility,
-			more: remainingCount > 0,
+			const remainingCount = lists.filter((item) => item.id !== list.id).length;
+			writeStoredValue(LANDING_SECTION_VISIBILITY_STORAGE_KEY, {
+				...landingSectionVisibility,
+				more: remainingCount > 0,
+			});
+			setOpenMoreFromAdminListId((current) => (current === list.id ? null : current));
+			setNotice(`List deleted everywhere: ${list.name}`);
 		});
-		setOpenMoreFromAdminListId((current) => (current === list.id ? null : current));
-		setNotice(`List deleted everywhere: ${list.name}`);
 	};
 
 	useEffect(() => {
@@ -678,11 +755,11 @@ export default function AdminProductsPage() {
 		// seed catalog from landing data only when BOTH products and categories are empty
 		if ((!storedProducts || storedProducts.length === 0) && (!storedCategories || storedCategories.length === 0)) {
 			const seed = buildSeedCatalog();
-			writeStoredArray(CATALOG_CATEGORIES_STORAGE_KEY, seed.categories);
-			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, seed.products);
-			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, seed.lists);
-			writeStoredValue(CATALOG_SELECTED_LIST_KEY, seed.selectedListId);
-			writeStoredValue(LANDING_HERO_STORAGE_KEY, seed.hero);
+			writeStoredArray(CATALOG_CATEGORIES_STORAGE_KEY, seed.categories, { silent: !feedbackReadyRef.current });
+			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, seed.products, { silent: !feedbackReadyRef.current });
+			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, seed.lists, { silent: !feedbackReadyRef.current });
+			writeStoredValue(CATALOG_SELECTED_LIST_KEY, seed.selectedListId, { silent: !feedbackReadyRef.current });
+			writeStoredValue(LANDING_HERO_STORAGE_KEY, seed.hero, { silent: !feedbackReadyRef.current });
 			// also update in-memory state immediately so UI reflects seed data
 			setCategories(seed.categories);
 			setProducts(seed.products);
@@ -699,6 +776,7 @@ export default function AdminProductsPage() {
 		};
 		window.addEventListener('storage', onChange);
 		window.addEventListener(CATALOG_STORAGE_EVENT, onChange);
+		feedbackReadyRef.current = true;
 		return () => {
 			window.removeEventListener('storage', onChange);
 			window.removeEventListener(CATALOG_STORAGE_EVENT, onChange);
@@ -782,23 +860,22 @@ export default function AdminProductsPage() {
 
 	const saveLandingHero = (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
+		openConfirm('Save landing hero?', 'Save the landing hero settings?', () => {
+			const opacityNum = Number(heroForm.overlayOpacity);
+			const nextHero = {
+				title: heroForm.title.trim() || defaultLandingHeroSettings.title,
+				buttonText: heroForm.buttonText.trim() || defaultLandingHeroSettings.buttonText,
+				buttonHref: defaultLandingHeroSettings.buttonHref,
+				imageUrl: heroForm.imageUrl.trim() || defaultLandingHeroSettings.imageUrl,
+				backgroundColor: defaultLandingHeroSettings.backgroundColor,
+				overlayOpacity: Number.isFinite(opacityNum) ? Math.min(100, Math.max(0, opacityNum)) : defaultLandingHeroSettings.overlayOpacity,
+			};
 
-		if (typeof window !== 'undefined' && !window.confirm('Save the landing hero settings?')) return;
-
-		const opacityNum = Number(heroForm.overlayOpacity);
-		const nextHero = {
-			title: heroForm.title.trim() || defaultLandingHeroSettings.title,
-			buttonText: heroForm.buttonText.trim() || defaultLandingHeroSettings.buttonText,
-			buttonHref: defaultLandingHeroSettings.buttonHref,
-			imageUrl: heroForm.imageUrl.trim() || defaultLandingHeroSettings.imageUrl,
-			backgroundColor: defaultLandingHeroSettings.backgroundColor,
-			overlayOpacity: Number.isFinite(opacityNum) ? Math.min(100, Math.max(0, opacityNum)) : defaultLandingHeroSettings.overlayOpacity,
-		};
-
-		writeStoredValue(LANDING_HERO_STORAGE_KEY, nextHero);
-		setHeroForm(normalizeLandingHeroForm(nextHero));
-		setNotice('Landing hero updated.');
-		setIsEditingHeroSettings(false);
+			writeStoredValue(LANDING_HERO_STORAGE_KEY, nextHero);
+			setHeroForm(normalizeLandingHeroForm(nextHero));
+			setNotice('Landing hero updated.');
+			setIsEditingHeroSettings(false);
+		});
 	};
 
 	const cancelHeroEdit = () => {
@@ -810,6 +887,8 @@ export default function AdminProductsPage() {
 	return (
 		<AdminShell active="products" title="Products">
 			<div className="flex flex-col gap-3">
+
+
 				{/* Landing preview: What's Hot + More From Admin */}
 				<section className="order-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 					<div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
@@ -820,7 +899,7 @@ export default function AdminProductsPage() {
 					</div>
 					<div className="p-4">
 						<div className="mb-4 overflow-hidden rounded-lg border border-slate-200">
-							<div className="grid grid-cols-[1.4fr_0.7fr_1.9fr] bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+							<div className="grid grid-cols-1 gap-2 bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-600 sm:grid-cols-[1.4fr_0.7fr_1.9fr] sm:gap-0">
 								<p>Landing List</p>
 								<p>Items</p>
 								<p>Actions</p>
@@ -830,13 +909,17 @@ export default function AdminProductsPage() {
 							) : null}
 							{landingSectionVisibility.hot ? (
 								<>
-							<div className="grid grid-cols-[1.4fr_0.7fr_1.9fr] items-center border-t border-slate-200 px-3 py-2 text-xs">
+							<div className="grid grid-cols-1 gap-2 border-t border-slate-200 px-3 py-2 text-xs sm:grid-cols-[1.4fr_0.7fr_1.9fr] sm:items-center sm:gap-0">
 								<p className="font-semibold text-slate-900">What&apos;s Hot Right Now</p>
 								<p className="text-slate-700">{products.filter((p) => p.showOnLanding).length}</p>
-								<div className="flex flex-wrap items-center justify-end gap-2">
-									<button type="button" onClick={editHotRightNowList} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700">Edit</button>
-									<button type="button" onClick={disableHotRightNowList} className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">Disable</button>
-									<button type="button" onClick={deleteHotRightNowList} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700">Delete</button>
+									<div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+									  {canEdit ? (
+										<>
+											<button type="button" onClick={editHotRightNowList} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700">Edit</button>
+											<button type="button" onClick={disableHotRightNowList} className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">Disable</button>
+											<button type="button" onClick={deleteHotRightNowList} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700">Delete</button>
+										</>
+									) : null}
 									<button type="button" aria-label={isHotListOpen ? "Hide What's Hot Right Now items" : "Show What's Hot Right Now items"} onClick={() => setIsHotListOpen((current) => !current)} className="rounded-md px-2 py-1 text-lg font-bold leading-none text-cyan-700 transition hover:bg-cyan-50">{isHotListOpen ? '▾' : '▸'}</button>
 								</div>
 							</div>
@@ -849,7 +932,7 @@ export default function AdminProductsPage() {
 												.map((p) => (
 													<div key={p.id} className="w-[140px] rounded-md border border-slate-200 bg-white p-2 text-xs">
 														<div className="h-20 w-full overflow-hidden rounded-md bg-slate-50">
-															{p.imageUrls[0] ? <img src={p.imageUrls[0]} alt={p.name} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-slate-400">No img</div>}
+															{p.imageUrls?.[0] ? <img src={p.imageUrls?.[0]} alt={p.name} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-slate-400">No img</div>}
 														</div>
 														<div className="mt-2 font-semibold text-slate-900 truncate">{p.name}</div>
 														<div className="text-[11px] text-slate-500">SKU: {p.sku}</div>
@@ -872,21 +955,25 @@ export default function AdminProductsPage() {
 										const listProducts = list.productIds.map((id) => products.find((p) => p.id === id)).filter(Boolean);
 										return (
 											<div key={list.id}>
-												<div className="grid grid-cols-[1.4fr_0.7fr_1.9fr] items-center border-t border-slate-200 px-3 py-2 text-xs">
+												<div className="grid grid-cols-1 gap-2 border-t border-slate-200 px-3 py-2 text-xs sm:grid-cols-[1.4fr_0.7fr_1.9fr] sm:items-center sm:gap-0">
 													<p className="font-semibold text-slate-900">{list.name}</p>
 													<p className="text-slate-700">{list.productIds.length}</p>
-													<div className="flex flex-wrap items-center justify-end gap-2">
-														<button type="button" onClick={() => editMoreFromAdminList(list)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700">Edit</button>
-														<button
-															type="button"
-															onClick={() => (isDisabled ? enableMoreFromAdminList(list) : disableMoreFromAdminList(list))}
-															className={`rounded-md px-2 py-1 text-[11px] font-bold ${isDisabled ? 'border border-emerald-300 bg-emerald-50 text-emerald-700' : 'border border-amber-300 bg-amber-50 text-amber-700'}`}
-														>
-															{isDisabled ? 'Enable' : 'Disable'}
-														</button>
-														<button type="button" onClick={() => deleteMoreFromAdminList(list)} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700">Delete</button>
-														<button type="button" aria-label={isOpen ? `Hide ${list.name} items` : `Show ${list.name} items`} onClick={() => setOpenMoreFromAdminListId(isOpen ? null : list.id)} className="rounded-md px-2 py-1 text-lg font-bold leading-none text-cyan-700 transition hover:bg-cyan-50">{isOpen ? '▾' : '▸'}</button>
-													</div>
+														<div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+															{canEdit ? (
+																<>
+																	<button type="button" onClick={() => editMoreFromAdminList(list)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700">Edit</button>
+																	<button
+																		type="button"
+																		onClick={() => (isDisabled ? enableMoreFromAdminList(list) : disableMoreFromAdminList(list))}
+																		className={`rounded-md px-2 py-1 text-[11px] font-bold ${isDisabled ? 'border border-emerald-300 bg-emerald-50 text-emerald-700' : 'border border-amber-300 bg-amber-50 text-amber-700'}`}
+																	>
+																		{isDisabled ? 'Enable' : 'Disable'}
+																	</button>
+																	<button type="button" onClick={() => deleteMoreFromAdminList(list)} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700">Delete</button>
+																</>
+															) : null}
+															<button type="button" aria-label={isOpen ? `Hide ${list.name} items` : `Show ${list.name} items`} onClick={() => setOpenMoreFromAdminListId(isOpen ? null : list.id)} className="rounded-md px-2 py-1 text-lg font-bold leading-none text-cyan-700 transition hover:bg-cyan-50">{isOpen ? '▾' : '▸'}</button>
+														</div>
 												</div>
 												{isOpen ? (
 													<div className="border-t border-slate-200 px-3 py-2">
@@ -895,7 +982,7 @@ export default function AdminProductsPage() {
 																listProducts.map((p) => (
 																	<div key={p!.id} className="w-[140px] rounded-md border border-slate-200 bg-white p-2 text-xs">
 																		<div className="h-20 w-full overflow-hidden rounded-md bg-slate-50">
-																			{p!.imageUrls[0] ? <img src={p!.imageUrls[0]} alt={p!.name} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-slate-400">No img</div>}
+																			{p!.imageUrls?.[0] ? <img src={p!.imageUrls?.[0]} alt={p!.name} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-slate-400">No img</div>}
 																		</div>
 																		<div className="mt-2 font-semibold text-slate-900 truncate">{p!.name}</div>
 																		<div className="text-[11px] text-slate-500">SKU: {p!.sku}</div>
@@ -925,29 +1012,33 @@ export default function AdminProductsPage() {
 								<h2 className="text-lg font-bold text-white">Product Catalog</h2>
 								<p className="text-xs text-blue-100">Create products, manage categories, and control landing-page visibility.</p>
 							</div>
-							<div className="flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									onClick={openCreateCategory}
-									className="rounded-md border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
-								>
-									Add Category
-								</button>
-								<button
-									type="button"
-									onClick={openCreateProduct}
-									className="rounded-md border border-white bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
-								>
-									Add Product
-								</button>
-								<button
-									type="button"
-									onClick={openCreateList}
-									className="rounded-md border border-white bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
-								>
-									Add List
-								</button>
-							</div>
+								<div className="flex flex-wrap items-center gap-2">
+															{canEdit ? (
+										<>
+											<button
+												type="button"
+												onClick={openCreateCategory}
+												className="rounded-md border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
+											>
+												Add Category
+											</button>
+											<button
+												type="button"
+												onClick={openCreateProduct}
+												className="rounded-md border border-white bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
+											>
+												Add Product
+											</button>
+											<button
+												type="button"
+												onClick={openCreateList}
+												className="rounded-md border border-white bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
+											>
+												Add List
+											</button>
+										</>
+									) : null}
+								</div>
 						</div>
 					</div>
 
@@ -964,20 +1055,22 @@ export default function AdminProductsPage() {
 				</section>
 
 				<section className="order-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-					<div className="border-b border-violet-200 bg-gradient-to-r from-violet-600 to-blue-600 p-4">
+							<div className="border-b border-violet-200 bg-gradient-to-r from-violet-600 to-blue-600 p-4">
 						<div className="flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<h2 className="text-lg font-bold text-white">Landing Hero Settings</h2>
 								<p className="text-xs text-violet-100">Edit the homepage banner and overlay.</p>
 							</div>
 							<div>
-								<button
-									type="button"
-									onClick={() => setIsEditingHeroSettings((current) => !current)}
-									className="rounded-md border border-white bg-white px-4 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
-								>
-									{isEditingHeroSettings ? 'Editing Hero' : 'Edit Hero'}
-								</button>
+										{!readOnly ? (
+											<button
+												type="button"
+												onClick={() => setIsEditingHeroSettings((current) => !current)}
+												className="rounded-md border border-white bg-white px-4 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
+											>
+												{isEditingHeroSettings ? 'Editing Hero' : 'Edit Hero'}
+											</button>
+										) : null}
 							</div>
 						</div>
 						</div>
@@ -1038,8 +1131,9 @@ export default function AdminProductsPage() {
 									<button
 										type="button"
 										onClick={() => {
-										if (typeof window !== 'undefined' && !window.confirm('Reset the landing hero settings back to defaults?')) return;
-										setHeroForm(emptyLandingHeroForm());
+										openConfirm('Reset landing hero?', 'Reset the landing hero settings back to defaults?', () => {
+											setHeroForm(emptyLandingHeroForm());
+										});
 									}}
 										className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
 									>
@@ -1092,10 +1186,14 @@ export default function AdminProductsPage() {
 													<span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">{linkedProducts} items</span>
 												</div>
 											</div>
-											<div className="flex shrink-0 items-center gap-1.5">
-												<button type="button" onClick={() => openEditCategory(category)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition hover:bg-slate-50">Edit</button>
-												<button type="button" onClick={() => deleteCategory(category.id, category.name)} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 transition hover:bg-rose-100">Delete</button>
-												<button type="button" aria-label={isOpen ? `Hide items in ${category.name}` : `Show items in ${category.name}`} onClick={() => setOpenCategoryId(isOpen ? null : category.id)} className="rounded-md px-2 py-1 text-lg font-bold leading-none text-cyan-700 transition hover:bg-cyan-50">{isOpen ? '▾' : '▸'}</button>
+												<div className="flex shrink-0 items-center gap-1.5">
+													{canEdit ? (
+														<>
+															<button type="button" onClick={() => openEditCategory(category)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition hover:bg-slate-50">Edit</button>
+															<button type="button" onClick={() => deleteCategory(category.id, category.name)} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 transition hover:bg-rose-100">Delete</button>
+														</>
+													) : null}
+													<button type="button" aria-label={isOpen ? `Hide items in ${category.name}` : `Show items in ${category.name}`} onClick={() => setOpenCategoryId(isOpen ? null : category.id)} className="rounded-md px-2 py-1 text-lg font-bold leading-none text-cyan-700 transition hover:bg-cyan-50">{isOpen ? '▾' : '▸'}</button>
 											</div>
 										</div>
 
@@ -1194,8 +1292,8 @@ export default function AdminProductsPage() {
 										<tr key={product.id} className="transition-colors hover:bg-slate-50">
 											<td className="px-4 py-3">
 												<div className="flex items-center gap-3">
-													{product.imageUrls[0] ? (
-														<img src={product.imageUrls[0]} alt={product.name} className="h-10 w-10 rounded-md border border-slate-200 object-cover" />
+													{product.imageUrls?.[0] ? (
+														<img src={product.imageUrls?.[0]} alt={product.name} className="h-10 w-10 rounded-md border border-slate-200 object-cover" />
 													) : (
 														<div className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-500">No img</div>
 													)}
@@ -1215,9 +1313,13 @@ export default function AdminProductsPage() {
 											</td>
 											<td className="px-4 py-3">
 												<div className="flex flex-wrap items-center gap-2">
-													<button type="button" onClick={() => openEditProduct(product)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50">Edit</button>
+													{canEdit ? (
+														<>
+															<button type="button" onClick={() => openEditProduct(product)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50">Edit</button>
 
-													<button type="button" onClick={() => deleteProduct(product.id, product.name)} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 transition hover:bg-rose-100">Delete</button>
+															<button type="button" onClick={() => deleteProduct(product.id, product.name)} className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 transition hover:bg-rose-100">Delete</button>
+														</>
+													) : null}
 												</div>
 											</td>
 										</tr>
@@ -1340,7 +1442,7 @@ export default function AdminProductsPage() {
 														categoryProducts.map((product) => {
 															const included = landingListEditorProductIds.includes(product.id);
 															const inactive = landingListEditorInactiveIds.includes(product.id);
-															const imageUrl = product.imageUrls[0];
+															const imageUrl = product.imageUrls?.[0] ?? '';
 															const stateLabel = inactive ? 'Inactive' : included ? 'Active' : 'Not Added';
 															const stateClass = inactive
 																? 'bg-amber-100 text-amber-800'
@@ -1482,6 +1584,36 @@ export default function AdminProductsPage() {
 					</div>
 				</form>
 			</AppModal>
+
+			{confirmAction ? (
+				<AppModal open={Boolean(confirmAction)} onClose={closeConfirm} cardClassName="w-full max-w-md overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl transition-all duration-200 ease-out">
+					<>
+						<style>{`
+							.products-confirm-card { animation: products-confirm-pop 160ms cubic-bezier(.2,.8,.2,1); }
+							@keyframes products-confirm-pop {
+								from { opacity: 0; transform: translateY(8px) scale(.98); }
+								to { opacity: 1; transform: translateY(0) scale(1); }
+							}
+						`}</style>
+						<div className="products-confirm-card">
+							<div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+								<h3 className="text-sm font-bold text-slate-900">{confirmAction.title}</h3>
+							</div>
+							<div className="space-y-4 p-4">
+								<p className="text-sm text-slate-600">{confirmAction.message}</p>
+								<div className="flex items-center justify-end gap-2">
+									<button type="button" onClick={closeConfirm} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50">
+										Cancel
+									</button>
+									<button type="button" onClick={runConfirm} className="rounded-lg border border-rose-600 bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-700">
+										Confirm
+									</button>
+								</div>
+							</div>
+						</div>
+					</>
+				</AppModal>
+			) : null}
 		</AdminShell>
 	);
 }

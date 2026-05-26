@@ -1,0 +1,19 @@
+▲ Next.js 16.2.3 (Turbopack)
+- Environments: .env.local, .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 13.0s
+  Running TypeScript ...
+Failed to type check.
+
+./src/app/login/admin/parties/customers/page.tsx:168:3
+Type error: Expected 1 arguments, but got 0.
+
+  [90m166 |[0m 		};
+  [90m167 |[0m
+[31m[1m>[0m [90m168 |[0m 		handleLedgerChange();
+  [90m    |[0m [31m[1m^[0m
+  [90m169 |[0m 		window.addEventListener([32m'storage'[0m, handleLedgerChange);
+  [90m170 |[0m 		window.addEventListener([33mLEDGER_STORAGE_EVENT[0m, handleLedgerChange);
+  [90m171 |[0m
+Next.js build worker exited with code: 1 and signal: null

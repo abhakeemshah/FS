@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BUSINESS_PROFILE } from '../lib/business-profile';
 
 const railItems = [
   { label: 'Home', short: 'H' },
@@ -16,7 +17,7 @@ export function AppShell({ children, activeIndex = 1 }: { children: ReactNode; a
         <header className="topbar">
           <div className="brand">
             <span className="brand-mark">F</span>
-            <span>FS Communication</span>
+            <span>{BUSINESS_PROFILE.shopName}</span>
           </div>
 
           <div className="searchbar" aria-label="Search field">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { categoryDetails, type CategoryDetail, type CategoryProduct } from '../../data/categories';
 import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_STORAGE_EVENT, CATALOG_HIDDEN_CATEGORIES_KEY, readStoredArray, type CatalogCategoryRecord, type CatalogProductRecord } from '../../lib/catalog-store';
+import { BUSINESS_PROFILE } from '../../lib/business-profile';
 
 type CategoryViewProduct = CategoryProduct & {
   hoverImage: string;
@@ -154,7 +155,7 @@ export default function CategoriesPage() {
       <div className="bg-blue-950 px-4 py-1 text-[10px] font-medium text-white/90 sm:px-6">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-2">
           <p className="flex items-center gap-2">
-            <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-bold uppercase tracking-[0.18em]">FS Communication</span>
+            <span className="inline-flex h-5 items-center rounded-full bg-white/10 px-2 text-[10px] font-bold uppercase tracking-[0.18em]">{BUSINESS_PROFILE.shopName}</span>
             <span>Browse All Categories</span>
           </p>
           <p className="hidden sm:block">Eng ▾ · Location ▾</p>
@@ -164,7 +165,7 @@ export default function CategoriesPage() {
       <header className="border-b border-slate-100 bg-white px-4 py-2 sm:px-6">
         <nav className="mx-auto flex max-w-7xl items-center gap-3">
           <div className="flex items-center gap-2 text-[1.05rem] font-extrabold tracking-tight text-blue-950">
-            <span>FS Communication</span>
+            <span>{BUSINESS_PROFILE.shopName}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button

@@ -1,9 +1,12 @@
-'use client';
+ 'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { readStaffSession, hasAdminSession } from '../../../../../lib/staff-auth';
 import { AdminShell } from '../../../../../components/admin-shell';
 import { AppModal } from '../../../../../components/app-modal';
 import { LEDGER_STORAGE_EVENT, SALES_BILLS_STORAGE_KEY, readStoredArray } from '../../../../../lib/ledger-store';
+import { BUSINESS_PROFILE } from '../../../../../lib/business-profile';
 
 type SalesLineItem = {
 	product: string;
@@ -56,6 +59,147 @@ const sortByRecent = (left: { date: string; time: string }, right: { date: strin
 	return rightStamp - leftStamp;
 };
 
+const buildCustomerLedgerPrintable = (customer: CustomerSummary) => `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Customer Ledger - ${BUSINESS_PROFILE.shopName}</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body { font-family: Arial, sans-serif; font-size: 12px; color: #000; background-color: #525659; display: flex; justify-content: center; padding: 20px; }
+		.page { width: 21cm; min-height: 29.7cm; background: white; padding: 1.5cm; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); }
+		@page { size: A4; margin: 0; }
+		@media print { body { background-color: white; padding: 0; display: block; } .page { width: auto; min-height: auto; box-shadow: none; padding: 1.5cm; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
+		.bg-navy { background-color: #000066; color: white; }
+		.bg-lightgray { background-color: #e2e2e2; }
+		.bg-darkgray { background-color: #888888; color: white; }
+		.text-navy { color: #000066; }
+		.header-section { display: flex; justify-content: space-between; margin-bottom: 25px; }
+		.company-info h1 { font-family: 'Times New Roman', Times, serif; font-size: 38px; font-weight: normal; letter-spacing: 1px; margin-bottom: 8px; }
+		.company-info p { font-size: 13px; margin-bottom: 4px; }
+		.memo-info { text-align: right; padding-top: 15px; }
+		.memo-info h2 { font-size: 18px; text-decoration: underline; letter-spacing: 2px; margin-bottom: 4px; }
+		.memo-info h3 { font-size: 16px; letter-spacing: 5px; font-weight: bold; margin-bottom: 12px; }
+		.info-grid { display: grid; grid-template-columns: 1fr 280px; gap: 15px; margin-bottom: 25px; }
+		.recipient-box { border: 1px solid #999; }
+		.recipient-box .title-bar { padding: 5px 10px; font-weight: bold; }
+		.recipient-box .customer-name { font-size: 18px; padding: 10px; background: white; border-bottom: 1px solid #999; }
+		.recipient-details { display: grid; grid-template-columns: 90px 1fr; gap: 5px; padding: 10px; }
+		.recipient-details div { padding: 2px 0; }
+		.recipient-remarks { border-top: 1px solid #999; padding: 5px 10px; display: grid; grid-template-columns: 90px 1fr; }
+		.invoice-meta { border-collapse: collapse; width: 100%; text-align: center; }
+		.invoice-meta th, .invoice-meta td { border: 1px solid #999; padding: 6px; }
+		.invoice-meta th { font-weight: normal; }
+		.invoice-meta .spacer-row { height: 10px; border: none; }
+		.product-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #999; }
+		.product-table th, .product-table td { padding: 6px 10px; text-align: right; border-bottom: 1px dashed #ccc; }
+		.product-table th { text-align: right; font-style: italic; font-weight: normal; border-bottom: none; }
+		.product-table th:nth-child(1), .product-table td:nth-child(1) { text-align: left; }
+		.product-table tbody tr:last-child td { border-bottom: none; }
+		.product-table tfoot td { font-style: italic; border-top: 1px solid #999; }
+		.totals-section { display: flex; justify-content: space-between; margin-bottom: 30px; align-items: flex-start; }
+		.total-pcs { font-size: 16px; font-weight: bold; font-style: italic; padding-left: 10px; }
+		.total-pcs span { margin-left: 20px; font-size: 18px; }
+		.financial-summary { width: 280px; border-collapse: collapse; }
+		.financial-summary td { padding: 5px 10px; font-style: italic; }
+		.financial-summary td:nth-child(2) { text-align: right; }
+		.financial-summary tr { border-bottom: 1px dashed #999; }
+		.financial-summary tr:last-child { border-bottom: none; font-weight: bold; font-size: 14px; }
+		.footer { margin-top: 18px; font-style: italic; text-align: center; }
+	</style>
+</head>
+<body>
+	<div class="page">
+		<header class="header-section">
+			<div class="company-info">
+				<h1 class="text-navy">${BUSINESS_PROFILE.shopName}</h1>
+				<p>${BUSINESS_PROFILE.address}</p>
+				<p>Owner : ${BUSINESS_PROFILE.shopOwner}</p>
+				<p>Phone : ${BUSINESS_PROFILE.contactNumber}</p>
+				<p>Email : ${BUSINESS_PROFILE.email}</p>
+			</div>
+			<div class="memo-info">
+				<h2>CUSTOMER LEDGER</h2>
+				<h3>ORIGENAL</h3>
+			</div>
+		</header>
+
+		<div class="info-grid">
+			<div class="recipient-box">
+				<div class="title-bar bg-navy">CUSTOMER</div>
+				<div class="customer-name text-navy">${customer.name}</div>
+				<div class="recipient-details bg-lightgray">
+					<div>Contact :</div>
+					<div>${customer.contact || '—'}</div>
+					<div>Invoices :</div>
+					<div>${customer.invoices.length}</div>
+					<div>Items :</div>
+					<div>${customer.totalItems}</div>
+				</div>
+				<div class="recipient-remarks bg-lightgray">
+					<div>Spent</div>
+					<div>${formatMoney(customer.totalSpent)}</div>
+				</div>
+			</div>
+			<div>
+				<table class="invoice-meta">
+					<tr class="bg-lightgray">
+						<th>Last Purchase</th>
+						<th>Summary</th>
+					</tr>
+					<tr>
+						<td>${customer.lastPurchase ? formatDate(customer.lastPurchase) : '—'}</td>
+						<td>${formatMoney(customer.totalSpent)}</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+
+		<table class="product-table">
+			<thead>
+				<tr class="bg-navy">
+					<th>Invoice</th>
+					<th>Date</th>
+					<th>Time</th>
+					<th>Total</th>
+				</tr>
+			</thead>
+			<tbody>
+				${customer.invoices.map((invoice) => `
+				<tr>
+					<td>${invoice.invoiceNumber}</td>
+					<td>${formatDate(invoice.date)}</td>
+					<td>${formatTime(invoice.time)}</td>
+					<td>${formatMoney(invoice.total)}</td>
+				</tr>`).join('')}
+			</tbody>
+		</table>
+
+		<div class="totals-section">
+			<div class="total-pcs">Invoices <span>${customer.invoices.length}</span></div>
+			<table class="financial-summary">
+				<tr><td>TOTAL SPENT</td><td>${formatMoney(customer.totalSpent)}</td></tr>
+				<tr><td>TOTAL ITEMS</td><td>${customer.totalItems}</td></tr>
+			</table>
+		</div>
+
+		<div class="footer">${BUSINESS_PROFILE.shopName}</div>
+	</div>
+</body>
+</html>`;
+
+const openPrintableWindow = (html: string) => {
+	const printWindow = window.open('', '_blank', 'width=980,height=1200');
+	if (!printWindow) return;
+	printWindow.document.open();
+	printWindow.document.write(html);
+	printWindow.document.close();
+	printWindow.focus();
+	setTimeout(() => printWindow.print(), 250);
+};
+
 function CustomerViewModal({ customer, onClose }: CustomerViewModalProps) {
 	return (
 		<AppModal
@@ -70,13 +214,10 @@ function CustomerViewModal({ customer, onClose }: CustomerViewModalProps) {
 					<h3 className="mt-1 text-sm font-extrabold tracking-tight text-slate-900">{customer.name}</h3>
 					<p className="text-xs text-slate-500">{customer.contact}</p>
 				</div>
-				<button
-					type="button"
-					onClick={onClose}
-					className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-rose-100 active:translate-y-0 active:scale-95"
-				>
-					Close
-				</button>
+				<div className="flex items-center gap-2">
+					<button type="button" onClick={() => openPrintableWindow(buildCustomerLedgerPrintable(customer))} className="rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-blue-700 active:translate-y-0 active:scale-95">Print</button>
+					<button type="button" onClick={onClose} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-rose-100 active:translate-y-0 active:scale-95">Close</button>
+				</div>
 			</div>
 
 			<div className="max-h-[calc(100vh-8rem)] overflow-y-auto bg-white p-4">
@@ -156,16 +297,29 @@ function CustomerViewModal({ customer, onClose }: CustomerViewModalProps) {
 }
 
 export default function CustomerPartiesPage() {
+	const router = useRouter();
+
+	useEffect(() => {
+		const staff = readStaffSession();
+		if (!staff && !hasAdminSession()) {
+			router.push('/login');
+		}
+	}, [router]);
+
 	const [customerBills, setCustomerBills] = useState<SalesBillRecord[]>([]);
 	const [viewCustomer, setViewCustomer] = useState<CustomerSummary | null>(null);
 	const [expandedCustomerName, setExpandedCustomerName] = useState<string | null>(null);
 
 	useEffect(() => {
-		const handleLedgerChange: EventListener = () => {
+		const refreshCustomerBills = () => {
 			setCustomerBills(readStoredArray<SalesBillRecord>(SALES_BILLS_STORAGE_KEY).sort(sortByRecent));
 		};
 
-		handleLedgerChange();
+		const handleLedgerChange = () => {
+			refreshCustomerBills();
+		};
+
+		refreshCustomerBills();
 		window.addEventListener('storage', handleLedgerChange);
 		window.addEventListener(LEDGER_STORAGE_EVENT, handleLedgerChange);
 

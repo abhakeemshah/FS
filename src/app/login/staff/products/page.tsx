@@ -1,14 +1,14 @@
 'use client';
 
-import AdminPurchasesPage from '../../admin/purchases/page';
+import AdminProductsPage from '../../admin/products/page';
 import { StaffPageFrame } from '../../../../components/staff-page-frame';
 import { WorkspaceModeProvider } from '../../../../components/admin-shell';
 
-export default function StaffPurchasesPage() {
+export default function StaffProductsPage() {
 	return (
 		<WorkspaceModeProvider mode="staff">
-			<StaffPageFrame moduleKey="purchases">
-				<AdminPurchasesPage />
+			<StaffPageFrame moduleKey="products">
+				<AdminProductsPage />
 			</StaffPageFrame>
 		</WorkspaceModeProvider>
 	);
