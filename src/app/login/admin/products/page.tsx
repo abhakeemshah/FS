@@ -25,7 +25,6 @@ import {
 	type LandingSectionVisibilityRecord,
 	type LandingHeroSettingsRecord,
 } from '../../../../lib/catalog-store';
-import { buildSeedCatalog } from '../../../../lib/seed-data';
 import { canCurrentStaffAccessModule, hasAdminSession, STAFF_AUTH_EVENT } from '../../../../lib/staff-auth';
 import { landingCategories } from '../../../../data/categories';
 
@@ -41,6 +40,9 @@ const normalizeCatalogProduct = (
 	...product,
 	status: product.status === 'draft' ? 'draft' : 'active',
 });
+
+const isSeedProduct = (product: CatalogProductRecord) => product.id.startsWith('seed-prd-');
+const isSeedList = (list: CatalogListRecord) => list.id.startsWith('seed-list-');
 
 type ProductFormState = {
 	name: string;
@@ -547,7 +549,12 @@ export default function AdminProductsPage({ readOnly = false }: { readOnly?: boo
 	}, [lists, products]);
 
 	const refreshLists = () => {
-		setLists(readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY));
+		const storedLists = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY);
+		const filteredLists = storedLists.filter((list) => !isSeedList(list));
+		if (filteredLists.length !== storedLists.length) {
+			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, filteredLists);
+		}
+		setLists(filteredLists);
 		const selected = readStoredValue<string | null>(CATALOG_SELECTED_LIST_KEY);
 		setSelectedListIdState(selected ?? null);
 	};
@@ -756,29 +763,22 @@ export default function AdminProductsPage({ readOnly = false }: { readOnly?: boo
 		// Load products, categories and lists from storage on mount so UI (modals) have data.
 		const storedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
 		const storedCategories = readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY);
-		setProducts(storedProducts.map(normalizeCatalogProduct));
-		setCategories(storedCategories);
-
-		// seed catalog from landing data only when BOTH products and categories are empty
-		if ((!storedProducts || storedProducts.length === 0) && (!storedCategories || storedCategories.length === 0)) {
-			const seed = buildSeedCatalog();
-			writeStoredArray(CATALOG_CATEGORIES_STORAGE_KEY, seed.categories, { silent: !feedbackReadyRef.current });
-			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, seed.products, { silent: !feedbackReadyRef.current });
-			writeStoredArray(CATALOG_LISTS_STORAGE_KEY, seed.lists, { silent: !feedbackReadyRef.current });
-			writeStoredValue(CATALOG_SELECTED_LIST_KEY, seed.selectedListId, { silent: !feedbackReadyRef.current });
-			writeStoredValue(LANDING_HERO_STORAGE_KEY, seed.hero, { silent: !feedbackReadyRef.current });
-			// also update in-memory state immediately so UI reflects seed data
-			setCategories(seed.categories);
-			setProducts(seed.products.map(normalizeCatalogProduct));
-			setLists(seed.lists);
-			setSelectedListIdState(seed.selectedListId);
+		const filteredProducts = storedProducts.filter((product) => !isSeedProduct(product)).map(normalizeCatalogProduct);
+		if (filteredProducts.length !== storedProducts.length) {
+			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, filteredProducts, { silent: !feedbackReadyRef.current });
 		}
+		setProducts(filteredProducts);
+		setCategories(storedCategories);
 
 		refreshLists();
 		const onChange: EventListener = () => {
 			refreshLists();
 			// Also refresh products and categories when storage changes
-			setProducts(readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY).map(normalizeCatalogProduct));
+			setProducts(
+				readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY)
+					.filter((product) => !isSeedProduct(product))
+					.map(normalizeCatalogProduct),
+			);
 			setCategories(readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY));
 		};
 		window.addEventListener('storage', onChange);

@@ -3,7 +3,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { landingCategories } from '../data/categories';
 import { BUSINESS_PROFILE } from '../lib/business-profile';
 import {
   CATALOG_CATEGORIES_STORAGE_KEY,
@@ -15,6 +14,7 @@ import {
   defaultLandingHeroSettings,
   readStoredArray,
   readStoredValue,
+  writeStoredArray,
   CATALOG_HIDDEN_CATEGORIES_KEY,
   type CatalogCategoryRecord,
   type CatalogProductRecord,
@@ -31,73 +31,6 @@ type ProductCard = {
   caption: string;
   badge?: string;
 };
-
-const productCards: ProductCard[] = [
-  {
-    name: 'Wireless Earbuds, PX8',
-    price: '89.00',
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1518441902117-f0a6b05d3f7a?auto=format&fit=crop&w=800&q=80',
-    caption: 'Organic cotton, fantastic comfort',
-    badge: '12k',
-  },
-  {
-    name: 'AirPods Max',
-    price: '559.00',
-    image: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1517420879524-86d64ac2f339?auto=format&fit=crop&w=800&q=80',
-    caption: 'A perfect balance of high-fidelity audio',
-    badge: '12k',
-  },
-  {
-    name: 'Bose BT Earphones',
-    price: '289.00',
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
-    caption: 'Table with air purifier, stained wooden black',
-    badge: '12k',
-  },
-  {
-    name: 'VIVEFOX Headphones',
-    price: '39.00',
-    image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&w=800&q=80',
-    caption: 'Wired Stereo Headsets With Mic',
-    badge: '12k',
-  },
-  {
-    name: 'JBL TUNE 600BTNC',
-    price: '59.00',
-    image: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=800&q=80',
-    caption: 'Premium bass and noise control',
-    badge: '12k',
-  },
-  {
-    name: 'TAGRY Bluetooth',
-    price: '109.00',
-    image: 'https://images.unsplash.com/photo-1609869503572-ec6f8f24f5c2?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
-    caption: 'USB, one charge, Bluetooth case',
-    badge: '12k',
-  },
-  {
-    name: 'Monster NMFLEX',
-    price: '89.75',
-    image: 'https://images.unsplash.com/photo-1599669454699-248893623440?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1545127398-14699f92334b?auto=format&fit=crop&w=800&q=80',
-    caption: 'Flex active noise cancelling bluetooth',
-    badge: '12k',
-  },
-  {
-    name: 'Mpow CH6',
-    price: '569.00',
-    image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=800&q=80',
-    hoverImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
-    caption: 'Kids headphones with soft pads',
-    badge: '12k',
-  },
-];
 
 // quickActions removed: filter buttons intentionally hidden from landing page
 const colorOptions = ['#f39b93', '#4b5563', '#cbd5c1', '#d1d5db', '#94a3b8'];
@@ -124,13 +57,16 @@ const mapCatalogProductToCard = (product: CatalogProductRecord): ProductCard => 
   badge: String(product.stock),
 });
 
+const isSeedProduct = (product: CatalogProductRecord) => product.id.startsWith('seed-prd-');
+const isSeedList = (list: CatalogListRecord) => list.id.startsWith('seed-list-');
+
 const mapStoredCategoryToLandingCategory = (
   category: CatalogCategoryRecord,
   fallbackCountLabel: string,
 ): { slug: string; name: string; image: string; countLabel: string } => ({
   slug: category.slug,
   name: category.name,
-  image: category.imageUrl || landingCategories.find((item) => item.slug === category.slug)?.image || landingCategories[0]?.image || '',
+  image: category.imageUrl || '',
   countLabel: fallbackCountLabel,
 });
 
@@ -390,15 +326,25 @@ export default function LandingPage() {
     const refreshLandingProducts = () => {
       const savedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
       const savedLists = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY);
+      const filteredProducts = savedProducts.filter((product) => !isSeedProduct(product));
+      const filteredLists = savedLists.filter((list) => !isSeedList(list));
+
+      if (filteredProducts.length !== savedProducts.length) {
+        writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, filteredProducts);
+      }
+      if (filteredLists.length !== savedLists.length) {
+        writeStoredArray(CATALOG_LISTS_STORAGE_KEY, filteredLists);
+      }
+
       setLandingSectionVisibility(
         normalizeLandingSectionVisibility(
           readStoredValue<Partial<LandingSectionVisibilityRecord>>(LANDING_SECTION_VISIBILITY_STORAGE_KEY),
         ),
       );
-      setStoredProducts(savedProducts);
-      setStoredLists(savedLists);
-      setStoredLandingProducts(savedProducts.filter((product) => product.showOnLanding).map(mapCatalogProductToCard));
-      setStoredExtraLandingProducts(savedProducts.filter((product) => product.showOnExtraLanding).map(mapCatalogProductToCard));
+      setStoredProducts(filteredProducts);
+      setStoredLists(filteredLists);
+      setStoredLandingProducts(filteredProducts.filter((product) => product.showOnLanding).map(mapCatalogProductToCard));
+      setStoredExtraLandingProducts(filteredProducts.filter((product) => product.showOnExtraLanding).map(mapCatalogProductToCard));
     };
 
     const refreshLandingCategories = () => {
@@ -573,14 +519,7 @@ export default function LandingPage() {
 
     const mapBySlug = new Map<string, { slug: string; name: string; image: string; countLabel: string }>();
 
-    // Start with defaults (unless hidden)
-    for (const cat of landingCategories) {
-      if (!hidden.has(cat.slug.toLowerCase())) {
-        mapBySlug.set(cat.slug.toLowerCase(), { ...cat });
-      }
-    }
-
-    // Merge stored categories, overriding defaults when slug matches
+    // Show only categories configured by admin; no hardcoded demo category fallback.
     for (const category of storedCategories) {
       if (!category.slug) continue;
       const slugLower = category.slug.toLowerCase();
@@ -674,7 +613,7 @@ export default function LandingPage() {
         </header>
 
         <div className="flex-1 min-w-0 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
-          <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_330px]" id="featured">
+          <div className="grid min-w-0 gap-5 xl:grid-cols-1" id="featured">
             <div className="min-w-0 space-y-5">
               <section className="relative overflow-hidden rounded-[18px]" style={{ backgroundColor: heroSettings.backgroundColor }}>
                 <img
@@ -783,7 +722,7 @@ export default function LandingPage() {
 
             </div>
 
-            <aside className="space-y-5 xl:col-span-2" id="support">
+            <aside className="space-y-5" id="support">
               <div className="rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
                 <h3 className="text-base font-extrabold text-slate-900">{t('Popular Categories')}</h3>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
@@ -806,6 +745,9 @@ export default function LandingPage() {
                     </Link>
                   ))}
                 </div>
+                {landingCategoryCards.length === 0 ? (
+                  <p className="mt-3 text-sm text-slate-500">No categories added yet.</p>
+                ) : null}
               </div>
             </aside>
           </div>

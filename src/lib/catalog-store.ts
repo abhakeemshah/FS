@@ -61,8 +61,8 @@ export type CatalogListRecord = {
 };
 
 export const defaultLandingHeroSettings: LandingHeroSettingsRecord = {
-  title: 'Grab upto 50% Off On Selected Headphone',
-  buttonText: 'Buy Now',
+  title: 'Explore Premium Mobile Accessories',
+  buttonText: 'Shop Now',
   buttonHref: '#grid',
   imageUrl: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=1600&q=80',
   backgroundColor: '#f4ede3',
