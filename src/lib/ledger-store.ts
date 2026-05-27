@@ -68,6 +68,17 @@ export function readStoredArray<T>(storageKey: string): T[] {
 	}
 }
 
+export function parseStoredArray<T>(rawValue: string | null | undefined): T[] {
+	if (!rawValue) return [];
+
+	try {
+		const parsedValue = JSON.parse(rawValue);
+		return Array.isArray(parsedValue) ? (parsedValue as T[]) : [];
+	} catch {
+		return [];
+	}
+}
+
 function syncLedgerSnapshot(storageKey: string, value: string | null) {
 	if (!LEDGER_SYNC_KEYS.has(storageKey)) return;
 
