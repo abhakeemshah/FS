@@ -62,7 +62,7 @@ export function StaffAccountManager() {
 			});
 
 			if (!result.ok) {
-				setMessage(result.message);
+				setMessage('message' in result ? (result as any).message : 'Failed to create staff account.');
 				return;
 			}
 
