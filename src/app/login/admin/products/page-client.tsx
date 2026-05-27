@@ -241,24 +241,44 @@ export default function AdminProductsPage({ readOnly = false, initialCatalogSnap
 		action.onConfirm();
 	};
 
-	useEffect(() => {
-		const refresh = () => {
-			setCategories(readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY));
-			setProducts(readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY));
-			setHeroForm(normalizeLandingHeroForm(readStoredValue<Partial<LandingHeroSettingsRecord>>(LANDING_HERO_STORAGE_KEY)));
+	const refreshCatalogFromServer = async () => {
+		try {
+			const response = await fetch('/api/catalog-state', { cache: 'no-store', credentials: 'include' });
+			if (!response.ok) return;
+
+			const payload = (await response.json()) as { snapshot?: CatalogSnapshot };
+			const snapshot = payload.snapshot ?? {};
+
+			setCategories(parseStoredArray<CatalogCategoryRecord>(snapshot[CATALOG_CATEGORIES_STORAGE_KEY]));
+			setProducts(
+				parseStoredArray<CatalogProductRecord>(snapshot[CATALOG_PRODUCTS_STORAGE_KEY])
+					.filter((product) => !isSeedProduct(product))
+					.map(normalizeCatalogProduct),
+			);
+			setLists(parseStoredArray<CatalogListRecord>(snapshot[CATALOG_LISTS_STORAGE_KEY]).filter((list) => !isSeedList(list)));
+			setHeroForm(normalizeLandingHeroForm(parseStoredValue<Partial<LandingHeroSettingsRecord>>(snapshot[LANDING_HERO_STORAGE_KEY])));
 			setLandingSectionVisibility(
 				normalizeLandingSectionVisibility(
-					readStoredValue<Partial<LandingSectionVisibilityRecord>>(LANDING_SECTION_VISIBILITY_STORAGE_KEY),
+					parseStoredValue<Partial<LandingSectionVisibilityRecord>>(snapshot[LANDING_SECTION_VISIBILITY_STORAGE_KEY]),
 				),
 			);
-		};
+			setSelectedListIdState(parseStoredValue<string | null>(snapshot[CATALOG_SELECTED_LIST_KEY]) ?? null);
+		} catch {
+			// Keep the current snapshot if the server is temporarily unavailable.
+		}
+	};
 
-		// One-time sync: hide default landing categories that no longer exist in stored categories
+	useEffect(() => {
+		const onChange: EventListener = () => refresh();
+		void refreshCatalogFromServer();
+
+		// One-time sync: hide default landing categories that no longer exist in the shared snapshot
 		try {
-			const storedCats = readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY);
-			const hidden = readStoredArray<string>(CATALOG_HIDDEN_CATEGORIES_KEY);
 			const defaultSlugs = landingCategories.map((c) => c.slug);
-			const missing = defaultSlugs.filter((s) => !storedCats.some((sc) => sc.slug === s) && !hidden.includes(s));
+			const hidden = parseStoredArray<string>(initialCatalogSnapshot[CATALOG_HIDDEN_CATEGORIES_KEY]);
+			const missing = defaultSlugs.filter(
+				(slug) => !initialCatalogBootstrap.categories.some((category) => category.slug === slug) && !hidden.includes(slug),
+			);
 			if (missing.length) {
 				writeStoredArray(CATALOG_HIDDEN_CATEGORIES_KEY, [...missing, ...hidden], { silent: !feedbackReadyRef.current });
 			}
@@ -266,7 +286,9 @@ export default function AdminProductsPage({ readOnly = false, initialCatalogSnap
 			// ignore
 		}
 
-		const onChange: EventListener = () => refresh();
+		const refresh = () => {
+			void refreshCatalogFromServer();
+		};
 		window.addEventListener('storage', onChange);
 		window.addEventListener(CATALOG_STORAGE_EVENT, onChange);
 
