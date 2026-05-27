@@ -633,7 +633,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
         <div className="flex-1 min-w-0 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
           <div className="mx-auto grid w-full max-w-7xl min-w-0 gap-5" id="featured">
             <div className="min-w-0 space-y-5">
-              <section className="relative overflow-hidden rounded-[18px] min-h-[420px] sm:min-h-[520px] lg:min-h-[680px] xl:min-h-[760px]" style={{ backgroundColor: heroSettings.backgroundColor }}>
+              <section className="relative overflow-hidden rounded-[18px] min-h-[320px] sm:min-h-[420px] lg:min-h-[520px] xl:min-h-[600px]" style={{ backgroundColor: heroSettings.backgroundColor }}>
                 <img
                   alt="Featured headphones banner"
                   src={heroSettings.imageUrl}
@@ -645,7 +645,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
                     backgroundImage: `linear-gradient(90deg, rgba(11,25,48,${heroSettings.overlayOpacity / 100}) 0%, rgba(11,25,48,${Math.max(heroSettings.overlayOpacity - 20, 0) / 100}) 34%, rgba(11,25,48,0.18) 72%, rgba(11,25,48,0.05) 100%)`,
                   }}
                 />
-                <div className="relative z-20 flex min-h-[420px] items-center px-5 py-8 sm:min-h-[520px] sm:px-8 sm:py-10 lg:min-h-[680px] lg:px-10 lg:py-12 xl:min-h-[760px]">
+                <div className="relative z-20 flex min-h-[320px] items-center px-5 py-8 sm:min-h-[420px] sm:px-8 sm:py-10 lg:min-h-[520px] lg:px-10 lg:py-12 xl:min-h-[600px]">
                   <div className="max-w-[640px]">
                     <h1 className="max-w-[620px] text-[clamp(2.5rem,4.8vw,5.5rem)] font-extrabold leading-[0.9] tracking-tight text-white">
                       {heroSettings.title}

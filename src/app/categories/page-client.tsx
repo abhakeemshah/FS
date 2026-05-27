@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { categoryDetails, type CategoryDetail, type CategoryProduct } from '../../data/categories';
-import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_STORAGE_EVENT, CATALOG_HIDDEN_CATEGORIES_KEY, parseStoredArray, readStoredArray, type CatalogCategoryRecord, type CatalogProductRecord } from '../../lib/catalog-store';
+import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_STORAGE_EVENT, CATALOG_HIDDEN_CATEGORIES_KEY, fetchCatalogSnapshot, parseStoredArray, type CatalogCategoryRecord, type CatalogProductRecord } from '../../lib/catalog-store';
 import { BUSINESS_PROFILE } from '../../lib/business-profile';
 
 export const dynamic = 'force-dynamic';
@@ -142,19 +142,26 @@ export default function CategoriesPage({ initialCatalogSnapshot }: { initialCata
   const [catalogCategories, setCatalogCategories] = useState<CategoryView[]>(() => buildCategoriesFromSnapshot(initialCatalogSnapshot));
 
   useEffect(() => {
-    const refreshCatalog = () => {
-      const storedCategories = readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY);
-      const storedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
-      const hiddenCategories = readStoredArray<string>(CATALOG_HIDDEN_CATEGORIES_KEY);
-      setCatalogCategories(mergeCatalog(storedCategories, storedProducts, hiddenCategories));
+    const refreshCatalog = async () => {
+      const snapshot = await fetchCatalogSnapshot();
+      setCatalogCategories(
+        mergeCatalog(
+          parseStoredArray<CatalogCategoryRecord>(snapshot[CATALOG_CATEGORIES_STORAGE_KEY]),
+          parseStoredArray<CatalogProductRecord>(snapshot[CATALOG_PRODUCTS_STORAGE_KEY]),
+          parseStoredArray<string>(snapshot[CATALOG_HIDDEN_CATEGORIES_KEY]),
+        ),
+      );
     };
 
-    window.addEventListener('storage', refreshCatalog);
-    window.addEventListener(CATALOG_STORAGE_EVENT, refreshCatalog);
+    const handleCatalogChange = () => { void refreshCatalog(); };
+
+    void refreshCatalog();
+    window.addEventListener('storage', handleCatalogChange);
+    window.addEventListener(CATALOG_STORAGE_EVENT, handleCatalogChange);
 
     return () => {
-      window.removeEventListener('storage', refreshCatalog);
-      window.removeEventListener(CATALOG_STORAGE_EVENT, refreshCatalog);
+      window.removeEventListener('storage', handleCatalogChange);
+      window.removeEventListener(CATALOG_STORAGE_EVENT, handleCatalogChange);
     };
   }, []);
 

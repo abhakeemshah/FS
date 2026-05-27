@@ -19,6 +19,9 @@ const CATALOG_SYNC_KEYS = new Set([
   CATALOG_HIDDEN_CATEGORIES_KEY,
 ]);
 
+const catalogSnapshotCache: Record<string, string> = {};
+let catalogSnapshotPromise: Promise<Record<string, string>> | null = null;
+
 export type CatalogCategoryRecord = {
   id: string;
   slug: string;
@@ -88,10 +91,8 @@ export function createSlug(value: string) {
 }
 
 export function readStoredArray<T>(storageKey: string): T[] {
-  if (typeof window === 'undefined') return [];
-
   try {
-    const raw = window.localStorage.getItem(storageKey);
+    const raw = catalogSnapshotCache[storageKey];
     if (!raw) return [];
 
     const parsed = JSON.parse(raw);
@@ -113,10 +114,8 @@ export function parseStoredArray<T>(rawValue: string | null | undefined): T[] {
 }
 
 export function readStoredValue<T>(storageKey: string): T | null {
-  if (typeof window === 'undefined') return null;
-
   try {
-    const raw = window.localStorage.getItem(storageKey);
+    const raw = catalogSnapshotCache[storageKey];
     if (!raw) return null;
 
     return JSON.parse(raw) as T;
@@ -136,46 +135,73 @@ export function parseStoredValue<T>(rawValue: string | null | undefined): T | nu
 }
 
 function syncCatalogSnapshot(storageKey: string, value: string | null) {
-  if (typeof window === 'undefined') return;
-  if (!CATALOG_SYNC_KEYS.has(storageKey)) return;
+  if (!CATALOG_SYNC_KEYS.has(storageKey)) return Promise.resolve();
 
-  void fetch('/api/catalog-state', {
+  return fetch('/api/catalog-state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     cache: 'no-store',
     body: JSON.stringify({ key: storageKey, value }),
-  }).catch(() => null);
-}
-export function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
-  if (typeof window === 'undefined') return;
+  }).then(async (response) => {
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      throw new Error(message || 'Failed to sync catalog snapshot');
+    }
 
-  const serialized = JSON.stringify(value);
-  window.localStorage.setItem(storageKey, serialized);
-  syncCatalogSnapshot(storageKey, serialized);
-  // Also write a changing timestamp to force a storage event in other tabs
-  try {
-    window.localStorage.setItem('fs-communication:last-updated', String(Date.now()));
-  } catch {
-    // ignore
+    const payload = (await response.json()) as { snapshot?: Record<string, string> };
+    return payload.snapshot ?? {};
+  });
+}
+export async function fetchCatalogSnapshot(): Promise<Record<string, string>> {
+  if (catalogSnapshotPromise) return catalogSnapshotPromise;
+
+  catalogSnapshotPromise = fetch('/api/catalog-state', { cache: 'no-store', credentials: 'include' })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to load catalog snapshot (${response.status})`);
+      }
+
+      const payload = (await response.json()) as { snapshot?: Record<string, string> };
+      const snapshot = payload.snapshot ?? {};
+      primeCatalogSnapshot(snapshot);
+      return snapshot;
+    })
+    .catch((error) => {
+      console.error('fetchCatalogSnapshot error:', error);
+      return { ...catalogSnapshotCache };
+    })
+    .finally(() => {
+      catalogSnapshotPromise = null;
+    });
+
+  return catalogSnapshotPromise;
+}
+
+export function primeCatalogSnapshot(snapshot: Record<string, string>) {
+  for (const key of Object.keys(catalogSnapshotCache)) {
+    delete catalogSnapshotCache[key];
   }
+
+  for (const [key, value] of Object.entries(snapshot)) {
+    catalogSnapshotCache[key] = value;
+  }
+}
+
+export async function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
+  const serialized = JSON.stringify(value);
+  const nextSnapshot = await syncCatalogSnapshot(storageKey, serialized);
+  primeCatalogSnapshot(nextSnapshot);
+  // Also write a changing timestamp to force a storage event in other tabs
   window.dispatchEvent(new Event(CATALOG_STORAGE_EVENT));
   if (!options?.silent) emitAppActionSuccess(storageKey);
 }
 
-export function writeStoredValue<T>(storageKey: string, value: T, options?: AppWriteOptions) {
-  if (typeof window === 'undefined') return;
-
-
-  const serialized = JSON.stringify(value);
-  window.localStorage.setItem(storageKey, serialized);
-  syncCatalogSnapshot(storageKey, serialized);
+export async function writeStoredValue<T>(storageKey: string, value: T, options?: AppWriteOptions) {
+  const serialized = value === null ? null : JSON.stringify(value);
+  const nextSnapshot = await syncCatalogSnapshot(storageKey, serialized);
+  primeCatalogSnapshot(nextSnapshot);
   // Also write a changing timestamp to force a storage event in other tabs
-  try {
-    window.localStorage.setItem('fs-communication:last-updated', String(Date.now()));
-  } catch {
-    // ignore
-  }
   window.dispatchEvent(new Event(CATALOG_STORAGE_EVENT));
   if (!options?.silent) emitAppActionSuccess(storageKey);
 }

@@ -624,12 +624,10 @@ export default function AdminProductsPage({ readOnly = false, initialCatalogSnap
 
 	const setSelectedList = (listId: string | null) => {
 		if (listId === null) {
-			window.localStorage.removeItem(CATALOG_SELECTED_LIST_KEY);
-			window.localStorage.setItem('fs-communication:last-updated', String(Date.now()));
+			void writeStoredValue(CATALOG_SELECTED_LIST_KEY, null);
 		} else {
-			window.localStorage.setItem(CATALOG_SELECTED_LIST_KEY, JSON.stringify(listId));
-			window.localStorage.setItem('fs-communication:last-updated', String(Date.now()));
-			writeStoredValue(LANDING_SECTION_VISIBILITY_STORAGE_KEY, {
+			void writeStoredValue(CATALOG_SELECTED_LIST_KEY, listId);
+			void writeStoredValue(LANDING_SECTION_VISIBILITY_STORAGE_KEY, {
 				...landingSectionVisibility,
 				more: true,
 			});
@@ -907,8 +905,7 @@ export default function AdminProductsPage({ readOnly = false, initialCatalogSnap
 		// If the deleted list was the currently selected list for landing, clear it.
 		const selected = readStoredValue<string | null>(CATALOG_SELECTED_LIST_KEY);
 		if (selected === listId) {
-			window.localStorage.removeItem(CATALOG_SELECTED_LIST_KEY);
-			window.localStorage.setItem('fs-communication:last-updated', String(Date.now()));
+			void writeStoredValue(CATALOG_SELECTED_LIST_KEY, null);
 			window.dispatchEvent(new Event(CATALOG_STORAGE_EVENT));
 		}
 

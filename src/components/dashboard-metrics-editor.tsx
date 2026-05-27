@@ -5,12 +5,6 @@ import { createPortal } from 'react-dom';
 import { AppModal } from './app-modal';
 import {
   LEDGER_STORAGE_EVENT,
-  MANUAL_PAYMENTS_STORAGE_KEY,
-  PURCHASES_STORAGE_KEY,
-  SALES_BILLS_STORAGE_KEY,
-  mapPurchaseToPaymentRecord,
-  mapSaleBillToPaymentRecord,
-  readStoredArray,
   type LedgerPaymentRecord,
   type PurchaseRecordLike,
   type SalesBillLike,
@@ -93,14 +87,11 @@ export function parseMetricOverrides(raw: string | null | undefined): Partial<Me
   }
 }
 
-function buildLiveMetricValues(overrides: Partial<MetricValues> = readMetricOverrides()): MetricValues {
-  if (typeof window === 'undefined') return createEmptyValues();
-
-  const salesBills = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY);
-  const purchaseRecords = readStoredArray<PurchaseRecordLike>(PURCHASES_STORAGE_KEY);
-  const salesPayments = salesBills.map(mapSaleBillToPaymentRecord);
-  const purchasePayments = purchaseRecords.map(mapPurchaseToPaymentRecord);
-
+function buildLiveMetricValues(
+  overrides: Partial<MetricValues> = readMetricOverrides(),
+  salesBills: SalesBillLike[] = [],
+  purchaseRecords: PurchaseRecordLike[] = [],
+): MetricValues {
   const todayKey = normalizeDateKey(new Date().toISOString());
   const monthKey = normalizeMonthKey(new Date().toISOString());
 
@@ -184,6 +175,8 @@ function buildLiveMetricValues(overrides: Partial<MetricValues> = readMetricOver
 }
 
 export function DashboardMetricsEditor({ initialOverrides = {} }: { initialOverrides?: Partial<MetricValues> }) {
+  const [salesBills, setSalesBills] = useState<SalesBillLike[]>([]);
+  const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecordLike[]>([]);
   const [values, setValues] = useState<MetricValues>(createEmptyValues());
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
@@ -193,7 +186,7 @@ export function DashboardMetricsEditor({ initialOverrides = {} }: { initialOverr
   const metricsByKey = useMemo(() => Object.fromEntries(metricConfigs.map((metric) => [metric.key, metric])), []);
 
   const refreshValues = () => {
-    setValues(buildLiveMetricValues(readMetricOverrides()));
+    setValues(buildLiveMetricValues(readMetricOverrides(), salesBills, purchaseRecords));
   };
 
   const openConfirm = (key: string) => {
@@ -210,7 +203,14 @@ export function DashboardMetricsEditor({ initialOverrides = {} }: { initialOverr
     if (Object.keys(initialOverrides).length) {
       saveMetricOverrides(initialOverrides);
     }
+  }, [initialOverrides]);
 
+  useEffect(() => {
+    setSalesBills(initialSalesBills);
+    setPurchaseRecords(initialPurchaseRecords);
+  }, [initialSalesBills, initialPurchaseRecords]);
+
+  useEffect(() => {
     refreshValues();
 
     const handleLiveUpdate: EventListener = () => refreshValues();
@@ -221,7 +221,7 @@ export function DashboardMetricsEditor({ initialOverrides = {} }: { initialOverr
       window.removeEventListener('storage', handleLiveUpdate);
       window.removeEventListener(LEDGER_STORAGE_EVENT, handleLiveUpdate);
     };
-  }, []);
+  }, [salesBills, purchaseRecords, initialOverrides]);
 
   useEffect(() => {
     if (confirmPhase !== 'opening') return;

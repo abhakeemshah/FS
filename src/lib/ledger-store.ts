@@ -13,6 +13,9 @@ const LEDGER_SYNC_KEYS = new Set([
 	MANUAL_PAYMENTS_STORAGE_KEY,
 ]);
 
+const ledgerSnapshotCache: Record<string, string> = {};
+let ledgerSnapshotPromise: Promise<Record<string, string>> | null = null;
+
 export type SalesBillLike = {
 	invoiceNumber: string;
 	date: string;
@@ -54,10 +57,8 @@ export type LedgerPaymentRecord = {
 };
 
 export function readStoredArray<T>(storageKey: string): T[] {
-	if (typeof window === 'undefined') return [];
-
 	try {
-		const rawValue = window.localStorage.getItem(storageKey);
+		const rawValue = ledgerSnapshotCache[storageKey];
 		if (!rawValue) return [];
 
 		const parsedValue = JSON.parse(rawValue);
@@ -68,25 +69,67 @@ export function readStoredArray<T>(storageKey: string): T[] {
 }
 
 function syncLedgerSnapshot(storageKey: string, value: string | null) {
-	if (typeof window === 'undefined') return;
 	if (!LEDGER_SYNC_KEYS.has(storageKey)) return;
 
-	void fetch('/api/ledger-state', {
+	return fetch('/api/ledger-state', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		credentials: 'include',
 		cache: 'no-store',
 		body: JSON.stringify({ key: storageKey, value }),
-	}).catch(() => null);
+	}).then(async (response) => {
+		if (!response.ok) {
+			const message = await response.text().catch(() => '');
+			throw new Error(message || 'Failed to sync ledger snapshot');
+		}
+
+		const payload = (await response.json()) as { snapshot?: Record<string, string> };
+		return payload.snapshot ?? {};
+	});
 }
 
-export function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
-	if (typeof window === 'undefined') return;
+export async function fetchLedgerSnapshot(): Promise<Record<string, string>> {
+	if (ledgerSnapshotPromise) return ledgerSnapshotPromise;
 
+	ledgerSnapshotPromise = fetch('/api/ledger-state', { cache: 'no-store', credentials: 'include' })
+		.then(async (response) => {
+			if (!response.ok) {
+				throw new Error(`Failed to load ledger snapshot (${response.status})`);
+			}
+
+			const payload = (await response.json()) as { snapshot?: Record<string, string> };
+			const snapshot = payload.snapshot ?? {};
+			primeLedgerSnapshot(snapshot);
+			return snapshot;
+		})
+		.catch((error) => {
+			console.error('fetchLedgerSnapshot error:', error);
+			return { ...ledgerSnapshotCache };
+		})
+		.finally(() => {
+			ledgerSnapshotPromise = null;
+		});
+
+	return ledgerSnapshotPromise;
+}
+
+export function primeLedgerSnapshot(snapshot: Record<string, string>) {
+	for (const key of Object.keys(ledgerSnapshotCache)) {
+		delete ledgerSnapshotCache[key];
+	}
+
+	for (const [key, value] of Object.entries(snapshot)) {
+		ledgerSnapshotCache[key] = value;
+	}
+}
+
+export async function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
 	const serialized = JSON.stringify(value);
-	window.localStorage.setItem(storageKey, serialized);
-	syncLedgerSnapshot(storageKey, serialized);
-	window.dispatchEvent(new Event(LEDGER_STORAGE_EVENT));
+	const nextSnapshot = await syncLedgerSnapshot(storageKey, serialized);
+	primeLedgerSnapshot(nextSnapshot);
+	if (typeof window !== 'undefined') {
+		window.dispatchEvent(new Event(LEDGER_STORAGE_EVENT));
+	}
 	if (!options?.silent) emitAppActionSuccess(storageKey);
 }
 

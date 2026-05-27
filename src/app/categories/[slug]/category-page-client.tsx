@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { categoryDetails, type CategoryDetail, type CategoryProduct } from '../../../data/categories';
-import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_STORAGE_EVENT, CATALOG_HIDDEN_CATEGORIES_KEY, readStoredArray, type CatalogCategoryRecord, type CatalogProductRecord } from '../../../lib/catalog-store';
+import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_STORAGE_EVENT, CATALOG_HIDDEN_CATEGORIES_KEY, fetchCatalogSnapshot, parseStoredArray, type CatalogCategoryRecord, type CatalogProductRecord } from '../../../lib/catalog-store';
 import { BUSINESS_PROFILE } from '../../../lib/business-profile';
 
 type CategoryViewProduct = CategoryProduct & {
@@ -91,21 +91,28 @@ export default function CategoryPageClient({ slug }: CategoryPageClientProps) {
   const [category, setCategory] = useState<CategoryView | null>(null);
 
   useEffect(() => {
-    const refreshCategory = () => {
-      const storedCategories = readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY);
-      const storedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
-      const hiddenCategories = readStoredArray<string>(CATALOG_HIDDEN_CATEGORIES_KEY);
-      setCategory(buildCategoryView(slug, storedCategories, storedProducts, hiddenCategories));
+    const refreshCategory = async () => {
+      const snapshot = await fetchCatalogSnapshot();
+      setCategory(
+        buildCategoryView(
+          slug,
+          parseStoredArray<CatalogCategoryRecord>(snapshot[CATALOG_CATEGORIES_STORAGE_KEY]),
+          parseStoredArray<CatalogProductRecord>(snapshot[CATALOG_PRODUCTS_STORAGE_KEY]),
+          parseStoredArray<string>(snapshot[CATALOG_HIDDEN_CATEGORIES_KEY]),
+        ),
+      );
     };
 
-    refreshCategory();
+    const handleCatalogChange = () => { void refreshCategory(); };
 
-    window.addEventListener('storage', refreshCategory);
-    window.addEventListener(CATALOG_STORAGE_EVENT, refreshCategory);
+    void refreshCategory();
+
+    window.addEventListener('storage', handleCatalogChange);
+    window.addEventListener(CATALOG_STORAGE_EVENT, handleCatalogChange);
 
     return () => {
-      window.removeEventListener('storage', refreshCategory);
-      window.removeEventListener(CATALOG_STORAGE_EVENT, refreshCategory);
+      window.removeEventListener('storage', handleCatalogChange);
+      window.removeEventListener(CATALOG_STORAGE_EVENT, handleCatalogChange);
     };
   }, [slug]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LEDGER_STORAGE_EVENT, SALES_BILLS_STORAGE_KEY, readStoredArray, type SalesBillLike } from '../lib/ledger-store';
+import { LEDGER_STORAGE_EVENT, SALES_BILLS_STORAGE_KEY, fetchLedgerSnapshot, parseStoredArray, type SalesBillLike } from '../lib/ledger-store';
 
 const fullYearMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -160,8 +160,9 @@ export function DashboardSummaryCharts({ initialRecords = [] }: { initialRecords
   const [salesValues, setSalesValues] = useState<number[]>(createEmptySeries());
 
   useEffect(() => {
-    const refresh = () => {
-      const records = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY);
+    const refresh = async () => {
+      const snapshot = await fetchLedgerSnapshot();
+      const records = parseStoredArray<SalesBillLike>(snapshot[SALES_BILLS_STORAGE_KEY]);
       const { invoiceValues: nextInvoices, salesValues: nextSales } = buildSeries(records);
       setInvoiceValues(nextInvoices);
       setSalesValues(nextSales);
@@ -172,10 +173,10 @@ export function DashboardSummaryCharts({ initialRecords = [] }: { initialRecords
       setInvoiceValues(nextInvoices);
       setSalesValues(nextSales);
     } else {
-      refresh();
+      void refresh();
     }
 
-    const onStorage: EventListener = () => refresh();
+    const onStorage: EventListener = () => { void refresh(); };
     window.addEventListener('storage', onStorage);
     window.addEventListener(LEDGER_STORAGE_EVENT, onStorage);
 

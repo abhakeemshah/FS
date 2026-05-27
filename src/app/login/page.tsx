@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authenticateStaff, saveAdminSession, saveStaffSession } from '../../lib/staff-auth';
+import { getHostingSupportMessage } from '../../lib/hosting-support';
 import { BUSINESS_PROFILE } from '../../lib/business-profile';
 import { useAppFeedback } from '../../components/app-feedback';
 
@@ -54,6 +55,8 @@ function RightPanel() {
   const [error, setError] = useState('');
   const router = useRouter();
   const { withLoading } = useAppFeedback();
+  const [supportVisible, setSupportVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const selectRole = (r: 'admin' | 'staff') => {
     setError('');
@@ -194,6 +197,45 @@ function RightPanel() {
           <div className="mt-3 flex gap-2">
             <a className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white" href="https://help.hostinger.com/en/articles" target="_blank" rel="noreferrer">Hostinger docs</a>
             <button type="button" onClick={() => setError('')} className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Dismiss</button>
+            <button
+              type="button"
+              onClick={() => {
+                setSupportVisible((s) => !s);
+                setCopied(false);
+              }}
+              className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"
+            >
+              {supportVisible ? 'Hide support text' : 'Copy support message'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {/* Support message drawer */}
+      {supportVisible ? (
+        <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 text-sm">
+          <div className="flex items-start justify-between">
+            <div className="text-slate-700">Support message (click copy to send to Hostinger)</div>
+            <div className="ml-2 text-xs text-slate-500">{copied ? 'Copied' : ''}</div>
+          </div>
+          <textarea readOnly value={getHostingSupportMessage(typeof window !== 'undefined' ? window.location.hostname : 'your-site-domain.com')} className="w-full mt-2 p-2 text-xs font-mono h-36 rounded border border-slate-200 bg-slate-50" />
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const msg = getHostingSupportMessage(window.location.hostname);
+                  await navigator.clipboard.writeText(msg);
+                  setCopied(true);
+                } catch (e) {
+                  setCopied(false);
+                  void navigator.clipboard?.writeText?.(getHostingSupportMessage(''));
+                }
+              }}
+              className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold text-white"
+            >
+              Copy message
+            </button>
+            <a href="https://support.hostinger.com" target="_blank" rel="noreferrer" className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold">Open Hostinger support</a>
           </div>
         </div>
       ) : null}
