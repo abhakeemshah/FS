@@ -1,7 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { jwtVerify } from '../../../lib/jwt';
-import { readLedgerSnapshot, updateLedgerSnapshot } from '../../../lib/ledger-server';
+import fs from 'fs';
+import path from 'path';
+import prisma from '../../../lib/db';
+
+const LEDGER_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'ledger-snapshot.json');
+
+async function readLedgerSnapshot(): Promise<Record<string, string>> {
+  try {
+    if (process.env.DATABASE_URL) {
+      const rows = await prisma.ledgerSnapshot.findMany();
+      const snapshot: Record<string, string> = {};
+      for (const row of rows) {
+        snapshot[row.key] = row.value ?? '';
+      }
+      return snapshot;
+    }
+  } catch (error) {
+    console.error('Prisma readLedgerSnapshot error:', error);
+  }
+
+  try {
+    if (!fs.existsSync(LEDGER_SNAPSHOT_FILE)) return {};
+    const raw = fs.readFileSync(LEDGER_SNAPSHOT_FILE, 'utf-8');
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, string>) : {};
+  } catch (error) {
+    console.error('File readLedgerSnapshot error:', error);
+    return {};
+  }
+}
+
+async function writeLedgerSnapshot(nextSnapshot: Record<string, string>) {
+  try {
+    if (process.env.DATABASE_URL) {
+      await prisma.ledgerSnapshot.deleteMany();
+      const data = Object.keys(nextSnapshot).map((key) => ({ key, value: nextSnapshot[key] }));
+      if (data.length) {
+        await prisma.ledgerSnapshot.createMany({ data });
+      }
+      return;
+    }
+  } catch (error) {
+    console.error('Prisma writeLedgerSnapshot error:', error);
+  }
+
+  const dataDir = path.dirname(LEDGER_SNAPSHOT_FILE);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  fs.writeFileSync(LEDGER_SNAPSHOT_FILE, JSON.stringify(nextSnapshot, null, 2), 'utf-8');
+}
+
+async function updateLedgerSnapshot(key: string, value: string | null) {
+  try {
+    if (process.env.DATABASE_URL) {
+      if (value === null) {
+        await prisma.ledgerSnapshot.deleteMany({ where: { key } });
+      } else {
+        await prisma.ledgerSnapshot.upsert({
+          where: { key },
+          create: { key, value },
+          update: { value },
+        });
+      }
+      return await readLedgerSnapshot();
+    }
+  } catch (error) {
+    console.error('Prisma updateLedgerSnapshot error:', error);
+  }
+
+  const snapshot = await readLedgerSnapshot();
+  if (value === null) {
+    delete snapshot[key];
+  } else {
+    snapshot[key] = value;
+  }
+  await writeLedgerSnapshot(snapshot);
+  return snapshot;
+}
 
 export async function GET() {
   try {
