@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { jwtVerify } from '../../../../lib/jwt';
+import { jwtVerify } from '@/lib/jwt';
 
 export async function POST(_req: NextRequest) {
   try {
