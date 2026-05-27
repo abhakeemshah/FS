@@ -96,6 +96,8 @@ function HorizontalProductScroller({
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [canScrollExtraLeft, setCanScrollExtraLeft] = useState(false);
+  const [canScrollExtraRight, setCanScrollExtraRight] = useState(true);
 
   const updateScrollState = () => {
     const scroller = scrollerRef.current;
@@ -226,6 +228,7 @@ export default function LandingPage() {
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hotRightNowScrollerRef = useRef<HTMLDivElement | null>(null);
+  const extraLandingScrollerRef = useRef<HTMLDivElement | null>(null);
   const shopName = BUSINESS_PROFILE.shopName;
 
   const translations: Record<'en' | 'ur', Record<string, string>> = {
