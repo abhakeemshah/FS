@@ -823,26 +823,20 @@ export default function AdminProductsPage({ readOnly = false, initialCatalogSnap
 	};
 
 	useEffect(() => {
-		// Load products, categories and lists from storage on mount so UI (modals) have data.
-		const storedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
-		const storedCategories = readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY);
-		const filteredProducts = storedProducts.filter((product) => !isSeedProduct(product)).map(normalizeCatalogProduct);
-		if (filteredProducts.length !== storedProducts.length) {
-			writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, filteredProducts, { silent: !feedbackReadyRef.current });
-		}
-		setProducts(filteredProducts);
-		setCategories(storedCategories);
+		const syncFromSnapshot = () => {
+			setCategories(initialCatalogBootstrap.categories);
+			setProducts(initialCatalogBootstrap.products);
+			setLists(initialCatalogBootstrap.lists);
+			setHeroForm(initialCatalogBootstrap.heroForm);
+			setLandingSectionVisibility(initialCatalogBootstrap.landingSectionVisibility);
+			setSelectedListIdState(initialCatalogBootstrap.selectedListId);
+		};
 
-		refreshLists();
+		syncFromSnapshot();
+		void refreshCatalogFromServer();
+
 		const onChange: EventListener = () => {
-			refreshLists();
-			// Also refresh products and categories when storage changes
-			setProducts(
-				readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY)
-					.filter((product) => !isSeedProduct(product))
-					.map(normalizeCatalogProduct),
-			);
-			setCategories(readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY));
+			void refreshCatalogFromServer();
 		};
 		window.addEventListener('storage', onChange);
 		window.addEventListener(CATALOG_STORAGE_EVENT, onChange);
