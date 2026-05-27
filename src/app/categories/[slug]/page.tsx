@@ -1,6 +1,8 @@
 import { categoryDetails } from '../../../data/categories';
 import { redirect } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 type CategoryPageProps = {
   params: {
     slug: string;

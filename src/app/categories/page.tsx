@@ -6,6 +6,8 @@ import { categoryDetails, type CategoryDetail, type CategoryProduct } from '../.
 import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_STORAGE_EVENT, CATALOG_HIDDEN_CATEGORIES_KEY, readStoredArray, type CatalogCategoryRecord, type CatalogProductRecord } from '../../lib/catalog-store';
 import { BUSINESS_PROFILE } from '../../lib/business-profile';
 
+export const dynamic = 'force-dynamic';
+
 type CategoryViewProduct = CategoryProduct & {
   hoverImage: string;
 };

@@ -23,6 +23,8 @@ import {
   type LandingHeroSettingsRecord,
 } from '../lib/catalog-store';
 
+export const dynamic = 'force-dynamic';
+
 type ProductCard = {
   name: string;
   price: string;
@@ -224,6 +226,8 @@ export default function LandingPage() {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [canScrollExtraLeft, setCanScrollExtraLeft] = useState(false);
+  const [canScrollExtraRight, setCanScrollExtraRight] = useState(true);
   const [language, setLanguage] = useState<'en' | 'ur'>('en');
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -616,7 +620,7 @@ export default function LandingPage() {
         </header>
 
         <div className="flex-1 min-w-0 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
-          <div className="grid min-w-0 gap-5 xl:grid-cols-1" id="featured">
+          <div className="mx-auto grid w-full max-w-7xl min-w-0 gap-5" id="featured">
             <div className="min-w-0 space-y-5">
               <section className="relative overflow-hidden rounded-[18px]" style={{ backgroundColor: heroSettings.backgroundColor }}>
                 <img
