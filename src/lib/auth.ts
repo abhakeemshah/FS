@@ -17,24 +17,14 @@ export interface AuthPayload {
 }
 
 export async function createAuthToken(payload: AuthPayload): Promise<string> {
-  const secret = process.env.NEXTAUTH_SECRET;
-
-  if (!secret) {
-    throw new Error('NEXTAUTH_SECRET is not configured');
-  }
+  const secret = process.env.JWT_SECRET || 'your-secret-key';
 
   return jwtSign(payload, secret);
 }
 
 export async function verifyAuthToken(token: string): Promise<AuthPayload | null> {
   try {
-    const secret = process.env.NEXTAUTH_SECRET;
-
-    if (!secret) {
-      return null;
-    }
-
-    const payload = jwtVerify(token, secret);
+    const payload = await jwtVerify(token);
     return payload as AuthPayload;
   } catch (error) {
     return null;

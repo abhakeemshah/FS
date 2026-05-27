@@ -23,9 +23,6 @@ import {
   type LandingHeroSettingsRecord,
 } from '../lib/catalog-store';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 type ProductCard = {
   name: string;
   price: string;

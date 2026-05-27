@@ -12,13 +12,8 @@ export async function POST(_req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const secret = process.env.NEXTAUTH_SECRET;
-    if (!secret) {
-      return NextResponse.json({ error: 'Server auth secret is not configured' }, { status: 500 });
-    }
-
     try {
-      const payload = jwtVerify(authToken, secret);
+      const payload = await jwtVerify(authToken);
       if (payload.role !== 'admin') {
         return NextResponse.json({ error: 'Only admins can revalidate the site cache' }, { status: 403 });
       }

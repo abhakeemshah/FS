@@ -4,16 +4,8 @@ import { hashPassword } from '../../../../lib/auth';
 import { cookies } from 'next/headers';
 import { jwtVerify } from '../../../../lib/jwt';
 
-function requireAdminSecret() {
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    throw new Error('Server auth secret is not configured');
-  }
-  return secret;
-}
-
-function verifyAdminSession(authToken: string) {
-  const payload = jwtVerify(authToken, requireAdminSecret());
+async function verifyAdminSession(authToken: string) {
+  const payload = await jwtVerify(authToken);
   if (payload.role !== 'admin') {
     throw new Error('Only admins can perform this action');
   }
@@ -34,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     // Verify token and check if admin
     try {
-      verifyAdminSession(authToken);
+      await verifyAdminSession(authToken);
     } catch {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }

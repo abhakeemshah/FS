@@ -13,12 +13,7 @@ export async function GET(_req: NextRequest) {
 			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		}
 
-		const secret = process.env.NEXTAUTH_SECRET;
-		if (!secret) {
-			return NextResponse.json({ error: 'Server auth secret is not configured' }, { status: 500 });
-		}
-
-		const payload = jwtVerify(authToken, secret);
+		const payload = await jwtVerify(authToken);
 
 		if (payload.role === 'admin') {
 			const configuredAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();

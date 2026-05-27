@@ -1,9 +1,18 @@
-// Simple JWT implementation for Next.js
-// In production, consider using jsonwebtoken package
-
+import { jwtVerify as verifyToken } from 'jose';
 import crypto from 'crypto';
 
-export function jwtSign(payload: any, secret: string, expiresIn = '24h'): string {
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+
+export async function jwtVerify(token: string) {
+  try {
+    const verified = await verifyToken(token, secret);
+    return verified.payload;
+  } catch (error) {
+    throw new Error('Invalid token');
+  }
+}
+
+export function jwtSign(payload: any, secretValue: string, expiresIn = '24h'): string {
   const header = {
     alg: 'HS256',
     typ: 'JWT',
@@ -20,41 +29,14 @@ export function jwtSign(payload: any, secret: string, expiresIn = '24h'): string
 
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
   const encodedPayload = base64UrlEncode(JSON.stringify(claims));
-  const signature = hmacSha256(`${encodedHeader}.${encodedPayload}`, secret);
+  const signature = hmacSha256(`${encodedHeader}.${encodedPayload}`, secretValue);
   const encodedSignature = base64UrlEncode(signature);
 
   return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
 }
 
-export function jwtVerify(token: string, secret: string): any {
-  const parts = token.split('.');
-  if (parts.length !== 3) {
-    throw new Error('Invalid token format');
-  }
-
-  const [encodedHeader, encodedPayload, encodedSignature] = parts;
-
-  // Verify signature
-  const signature = hmacSha256(`${encodedHeader}.${encodedPayload}`, secret);
-  const expectedSignature = base64UrlEncode(signature);
-
-  if (encodedSignature !== expectedSignature) {
-    throw new Error('Invalid token signature');
-  }
-
-  // Decode and verify payload
-  const payload = JSON.parse(base64UrlDecode(encodedPayload));
-
-  // Check expiration
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-    throw new Error('Token expired');
-  }
-
-  return payload;
-}
-
-function hmacSha256(message: string, secret: string): string {
-  return crypto.createHmac('sha256', secret).update(message).digest();
+function hmacSha256(message: string, secretValue: string): Buffer {
+  return crypto.createHmac('sha256', secretValue).update(message).digest();
 }
 
 function base64UrlEncode(str: string | Buffer): string {
@@ -64,14 +46,6 @@ function base64UrlEncode(str: string | Buffer): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
-}
-
-function base64UrlDecode(str: string): string {
-  let padded = str.replace(/\-/g, '+').replace(/_/g, '/');
-  while (padded.length % 4) {
-    padded += '=';
-  }
-  return Buffer.from(padded, 'base64').toString('utf8');
 }
 
 function parseExpiresIn(expiresIn: string): number {
