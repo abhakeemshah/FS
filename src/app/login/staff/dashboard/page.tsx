@@ -1,8 +1,8 @@
 'use client';
 
-import AdminDashboardPage from '../../admin/dashboard/page';
 import { StaffPageFrame } from '../../../../components/staff-page-frame';
 import { WorkspaceModeProvider } from '../../../../components/admin-shell';
+import AdminDashboardPage from '../../admin/dashboard/page';
 
 export default function StaffDashboardPage() {
 	return (
