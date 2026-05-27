@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { jwtVerify } from '@/lib/jwt';
-import { readCatalogSnapshot, updateCatalogSnapshot } from '@/lib/catalog-server';
+import { jwtVerify } from '../../../lib/jwt';
+import { readCatalogSnapshot, updateCatalogSnapshot } from '../../../lib/catalog-server';
 
 export async function GET() {
   return NextResponse.json({ snapshot: readCatalogSnapshot() });
