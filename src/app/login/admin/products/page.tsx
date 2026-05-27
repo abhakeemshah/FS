@@ -5,7 +5,8 @@ import AdminProductsPageClient from './page-client';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default function AdminProductsPage() {
+export default async function AdminProductsPage() {
   noStore();
-  return <AdminProductsPageClient initialCatalogSnapshot={readCatalogSnapshot()} />;
+  const snapshot = await readCatalogSnapshot();
+  return <AdminProductsPageClient initialCatalogSnapshot={snapshot} />;
 }

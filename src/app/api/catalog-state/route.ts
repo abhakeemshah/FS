@@ -4,7 +4,8 @@ import { jwtVerify } from '../../../lib/jwt';
 import { readCatalogSnapshot, updateCatalogSnapshot } from '../../../lib/catalog-server';
 
 export async function GET() {
-  return NextResponse.json({ snapshot: readCatalogSnapshot() });
+  const snapshot = await readCatalogSnapshot();
+  return NextResponse.json({ snapshot });
 }
 
 export async function POST(req: NextRequest) {
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const snapshot = updateCatalogSnapshot(key, value);
+    const snapshot = await updateCatalogSnapshot(key, value);
     return NextResponse.json({ success: true, snapshot });
   } catch (err) {
     console.error('Catalog sync error:', err);

@@ -5,7 +5,8 @@ import { readCatalogSnapshot } from '../../lib/catalog-server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default function CategoriesPageWrapper() {
+export default async function CategoriesPageWrapper() {
   noStore();
-  return <CategoriesPageClient initialCatalogSnapshot={readCatalogSnapshot()} />;
+  const snapshot = await readCatalogSnapshot();
+  return <CategoriesPageClient initialCatalogSnapshot={snapshot} />;
 }
