@@ -181,6 +181,22 @@ function RightPanel() {
         </form>
 
       </div>
+      {/* If the error looks like a hosting bot/challenge page, surface a clear professional banner */}
+      {error && /bot verification|verify you are not a robot|recaptcha|cloudflare|access denied|hosting provider/i.test(error) ? (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="font-semibold">Hosting protection blocking login</div>
+          <div className="mt-1">It looks like the hosting provider is returning a bot-verification page for API requests. This prevents the site from completing sign-in.</div>
+          <ul className="mt-2 ml-4 list-disc">
+            <li>Disable Bot / WAF protection for <strong>fs-communication.com</strong> or</li>
+            <li>Whitelist the following API routes: <code className="rounded bg-slate-100 px-1">/api/auth/*</code> and <code className="rounded bg-slate-100 px-1">/api/ledger-state</code></li>
+            <li>Alternatively, deploy behind a proper proxy or set a health-check token and use our <code className="rounded bg-slate-100 px-1">/api/status</code> endpoint to verify connectivity</li>
+          </ul>
+          <div className="mt-3 flex gap-2">
+            <a className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white" href="https://help.hostinger.com/en/articles" target="_blank" rel="noreferrer">Hostinger docs</a>
+            <button type="button" onClick={() => setError('')} className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Dismiss</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
