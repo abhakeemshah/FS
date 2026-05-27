@@ -92,7 +92,7 @@ function RightPanel() {
               contentType,
               preview: raw.slice(0, 200),
             });
-            setError('Server returned an unexpected response. Please try again.');
+            setError(raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.');
             throw new Error('Unexpected response');
           }
 

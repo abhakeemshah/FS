@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
     // Verify token and check if admin
     try {
-      verifyAdminSession(authToken);
+      await verifyAdminSession(authToken);
     } catch {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -146,7 +146,7 @@ export async function PATCH(req: NextRequest) {
 
     // Verify token and check if admin
     try {
-      verifyAdminSession(authToken);
+      await verifyAdminSession(authToken);
     } catch {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
