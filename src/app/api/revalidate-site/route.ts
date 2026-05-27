@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { jwtVerify } from '@/lib/jwt';
+import { jwtVerify as joseVerify } from 'jose';
+
+async function jwtVerify(token: string) {
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+  try {
+    const { payload } = await joseVerify(token, secret);
+    return payload;
+  } catch (error) {
+    throw new Error('Invalid token');
+  }
+}
 
 export async function POST(_req: NextRequest) {
   try {
