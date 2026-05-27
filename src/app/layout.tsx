@@ -3,6 +3,9 @@ import './globals.css';
 import { BUSINESS_PROFILE } from '../lib/business-profile';
 import { AppFeedbackProvider } from '../components/app-feedback';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata = {
   title: BUSINESS_PROFILE.shopName,
   description: 'Minimal finance and sales workflow dashboard.',

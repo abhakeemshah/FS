@@ -7,6 +7,7 @@ import { CATALOG_CATEGORIES_STORAGE_KEY, CATALOG_PRODUCTS_STORAGE_KEY, CATALOG_S
 import { BUSINESS_PROFILE } from '../../lib/business-profile';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type CategoryViewProduct = CategoryProduct & {
   hoverImage: string;

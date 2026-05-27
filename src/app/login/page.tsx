@@ -80,6 +80,7 @@ function RightPanel() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, role }),
+            cache: 'no-store',
             credentials: 'include',
           });
 

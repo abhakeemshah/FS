@@ -223,6 +223,7 @@ export function writeStaffAccessMetaMap(value: StaffAccessMetaMap, options?: App
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ accessMetaMap: value }),
+			cache: 'no-store',
 			credentials: 'include',
 		}).catch(() => null);
 	}
@@ -231,6 +232,7 @@ export function writeStaffAccessMetaMap(value: StaffAccessMetaMap, options?: App
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ accessMetaMap: value }),
+		cache: 'no-store',
 	}).catch(() => null);
 }
 
@@ -424,7 +426,7 @@ export async function fetchCurrentStaffAccessMeta(): Promise<StaffAccessMeta | n
 	if (typeof window === 'undefined') return null;
 
 	try {
-		const response = await fetch('/api/auth/me', { credentials: 'include' });
+		const response = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' });
 		if (response.ok) {
 			const data = (await response.json()) as { staffAccessMeta?: unknown; user?: { staffAccessMeta?: unknown } };
 			const rawMeta = data.staffAccessMeta ?? data.user?.staffAccessMeta ?? null;
@@ -440,7 +442,7 @@ export async function fetchCurrentStaffAccessMeta(): Promise<StaffAccessMeta | n
 
 	try {
 		const username = encodeURIComponent(session.username.trim().toLowerCase());
-		const fallback = await fetch(`/api/staff-meta?username=${username}`);
+		const fallback = await fetch(`/api/staff-meta?username=${username}`, { cache: 'no-store' });
 		if (!fallback.ok) return null;
 
 		const data = (await fallback.json()) as { staffAccessMeta?: unknown };

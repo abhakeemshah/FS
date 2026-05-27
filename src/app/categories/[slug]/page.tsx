@@ -2,6 +2,7 @@ import { categoryDetails } from '../../../data/categories';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type CategoryPageProps = {
   params: {
