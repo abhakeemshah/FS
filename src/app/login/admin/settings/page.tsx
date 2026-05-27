@@ -168,6 +168,7 @@ const saveSettings = (settings: AdminSettings) => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   window.dispatchEvent(new Event('admin-settings-updated'));
+  void fetch('/api/revalidate-site', { method: 'POST', cache: 'no-store', credentials: 'include' }).catch(() => null);
 };
 
 export default function AdminSettingsPage() {
@@ -349,6 +350,7 @@ export default function AdminSettingsPage() {
           window.dispatchEvent(new Event(PRODUCTS_EVENT));
           window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
           window.dispatchEvent(new Event('admin-settings-updated'));
+          void fetch('/api/revalidate-site', { method: 'POST', cache: 'no-store', credentials: 'include' }).catch(() => null);
 
           setNotice('Backup imported successfully.');
           setErrorText(null);

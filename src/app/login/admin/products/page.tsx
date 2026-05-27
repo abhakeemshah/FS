@@ -163,6 +163,20 @@ export default function AdminProductsPage({ readOnly = false }: { readOnly?: boo
 	} | null>(null);
 	const feedbackReadyRef = useRef(false);
 
+	useEffect(() => {
+		const revalidateSite = () => {
+			void fetch('/api/revalidate-site', { method: 'POST', cache: 'no-store', credentials: 'include' }).catch(() => null);
+		};
+
+		window.addEventListener(CATALOG_STORAGE_EVENT, revalidateSite);
+		window.addEventListener(PRODUCTS_EVENT, revalidateSite);
+
+		return () => {
+			window.removeEventListener(CATALOG_STORAGE_EVENT, revalidateSite);
+			window.removeEventListener(PRODUCTS_EVENT, revalidateSite);
+		};
+	}, []);
+
 	// Compute whether the current client should be allowed to perform edits.
 	const [canEdit, setCanEdit] = useState(false);
 
