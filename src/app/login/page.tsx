@@ -92,7 +92,12 @@ function RightPanel() {
               contentType,
               preview: raw.slice(0, 200),
             });
-            setError(raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.');
+            const looksLikeBotChallenge = /bot verification|verify you are not a robot|recaptcha|cloudflare|access denied/i.test(raw);
+            setError(
+              looksLikeBotChallenge
+                ? 'The hosting provider is blocking the login request with a bot verification page. Please disable bot protection for this site or whitelist /api routes.'
+                : (raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.')
+            );
             throw new Error('Unexpected response');
           }
 
