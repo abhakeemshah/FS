@@ -12,6 +12,8 @@ import {
   LANDING_HERO_STORAGE_KEY,
   LANDING_SECTION_VISIBILITY_STORAGE_KEY,
   defaultLandingHeroSettings,
+  parseStoredArray,
+  parseStoredValue,
   readStoredArray,
   readStoredValue,
   writeStoredArray,
@@ -83,6 +85,30 @@ const normalizeHeroSettings = (settings: Partial<LandingHeroSettingsRecord> | nu
     ? Math.min(100, Math.max(0, Number(settings?.overlayOpacity)))
     : defaultLandingHeroSettings.overlayOpacity,
 });
+
+type CatalogSnapshot = Record<string, string>;
+
+const buildLandingStateFromSnapshot = (snapshot: CatalogSnapshot) => {
+  const products = parseStoredArray<CatalogProductRecord>(snapshot[CATALOG_PRODUCTS_STORAGE_KEY]).filter((product) => !isSeedProduct(product));
+  const lists = parseStoredArray<CatalogListRecord>(snapshot[CATALOG_LISTS_STORAGE_KEY]).filter((list) => !isSeedList(list));
+  const categories = parseStoredArray<CatalogCategoryRecord>(snapshot[CATALOG_CATEGORIES_STORAGE_KEY]);
+  const hiddenCategories = parseStoredArray<string>(snapshot[CATALOG_HIDDEN_CATEGORIES_KEY]);
+  const landingSectionVisibility = normalizeLandingSectionVisibility(
+    parseStoredValue<Partial<LandingSectionVisibilityRecord>>(snapshot[LANDING_SECTION_VISIBILITY_STORAGE_KEY]),
+  );
+  const heroSettings = normalizeHeroSettings(parseStoredValue<Partial<LandingHeroSettingsRecord>>(snapshot[LANDING_HERO_STORAGE_KEY]));
+
+  return {
+    products,
+    lists,
+    categories,
+    hiddenCategories,
+    landingSectionVisibility,
+    heroSettings,
+    storedLandingProducts: products.filter((product) => product.showOnLanding).map(mapCatalogProductToCard),
+    storedExtraLandingProducts: products.filter((product) => product.showOnExtraLanding).map(mapCatalogProductToCard),
+  };
+};
 
 function HorizontalProductScroller({
   heading,
@@ -210,17 +236,18 @@ function HorizontalProductScroller({
   );
 }
 
-export default function LandingPage() {
+export default function LandingPage({ initialCatalogSnapshot }: { initialCatalogSnapshot: CatalogSnapshot }) {
+  const initialLandingState = buildLandingStateFromSnapshot(initialCatalogSnapshot);
   const [selectedProduct, setSelectedProduct] = useState<ProductCard | null>(null);
   const [selectedPopupImage, setSelectedPopupImage] = useState<string | null>(null);
-  const [storedProducts, setStoredProducts] = useState<CatalogProductRecord[]>([]);
-  const [storedLists, setStoredLists] = useState<CatalogListRecord[]>([]);
-  const [storedLandingProducts, setStoredLandingProducts] = useState<ProductCard[]>([]);
-  const [storedExtraLandingProducts, setStoredExtraLandingProducts] = useState<ProductCard[]>([]);
-  const [landingSectionVisibility, setLandingSectionVisibility] = useState<LandingSectionVisibilityRecord>(defaultLandingSectionVisibility);
-  const [heroSettings, setHeroSettings] = useState<LandingHeroSettingsRecord>(defaultLandingHeroSettings);
-  const [storedCategories, setStoredCategories] = useState<CatalogCategoryRecord[]>([]);
-  const [storedHiddenCategories, setStoredHiddenCategories] = useState<string[]>([]);
+  const [storedProducts, setStoredProducts] = useState<CatalogProductRecord[]>(initialLandingState.products);
+  const [storedLists, setStoredLists] = useState<CatalogListRecord[]>(initialLandingState.lists);
+  const [storedLandingProducts, setStoredLandingProducts] = useState<ProductCard[]>(initialLandingState.storedLandingProducts);
+  const [storedExtraLandingProducts, setStoredExtraLandingProducts] = useState<ProductCard[]>(initialLandingState.storedExtraLandingProducts);
+  const [landingSectionVisibility, setLandingSectionVisibility] = useState<LandingSectionVisibilityRecord>(initialLandingState.landingSectionVisibility);
+  const [heroSettings, setHeroSettings] = useState<LandingHeroSettingsRecord>(initialLandingState.heroSettings);
+  const [storedCategories, setStoredCategories] = useState<CatalogCategoryRecord[]>(initialLandingState.categories);
+  const [storedHiddenCategories, setStoredHiddenCategories] = useState<string[]>(initialLandingState.hiddenCategories);
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -328,37 +355,25 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    const refreshLandingProducts = () => {
-      const savedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
-      const savedLists = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY);
-      const filteredProducts = savedProducts.filter((product) => !isSeedProduct(product));
-      const filteredLists = savedLists.filter((list) => !isSeedList(list));
+    const refreshLandingCategories = () => {
+      setStoredCategories(readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY));
+      setStoredHiddenCategories(readStoredArray<string>(CATALOG_HIDDEN_CATEGORIES_KEY));
+    };
 
-      if (filteredProducts.length !== savedProducts.length) {
-        writeStoredArray(CATALOG_PRODUCTS_STORAGE_KEY, filteredProducts);
-      }
-      if (filteredLists.length !== savedLists.length) {
-        writeStoredArray(CATALOG_LISTS_STORAGE_KEY, filteredLists);
-      }
+    const refreshLandingProducts = () => {
+      const savedProducts = readStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY).filter((product) => !isSeedProduct(product));
+      const savedLists = readStoredArray<CatalogListRecord>(CATALOG_LISTS_STORAGE_KEY).filter((list) => !isSeedList(list));
 
       setLandingSectionVisibility(
         normalizeLandingSectionVisibility(
           readStoredValue<Partial<LandingSectionVisibilityRecord>>(LANDING_SECTION_VISIBILITY_STORAGE_KEY),
         ),
       );
-      setStoredProducts(filteredProducts);
-      setStoredLists(filteredLists);
-      setStoredLandingProducts(filteredProducts.filter((product) => product.showOnLanding).map(mapCatalogProductToCard));
-      setStoredExtraLandingProducts(filteredProducts.filter((product) => product.showOnExtraLanding).map(mapCatalogProductToCard));
+      setStoredProducts(savedProducts);
+      setStoredLists(savedLists);
+      setStoredLandingProducts(savedProducts.filter((product) => product.showOnLanding).map(mapCatalogProductToCard));
+      setStoredExtraLandingProducts(savedProducts.filter((product) => product.showOnExtraLanding).map(mapCatalogProductToCard));
     };
-
-    const refreshLandingCategories = () => {
-      setStoredCategories(readStoredArray<CatalogCategoryRecord>(CATALOG_CATEGORIES_STORAGE_KEY));
-      setStoredHiddenCategories(readStoredArray<string>(CATALOG_HIDDEN_CATEGORIES_KEY));
-    };
-
-    refreshLandingProducts();
-    refreshLandingCategories();
 
     window.addEventListener('storage', refreshLandingProducts);
     window.addEventListener(CATALOG_STORAGE_EVENT, refreshLandingProducts);
@@ -380,8 +395,6 @@ export default function LandingPage() {
       const stored = readStoredValue<Partial<LandingHeroSettingsRecord>>(LANDING_HERO_STORAGE_KEY);
       setHeroSettings(normalizeHeroSettings(stored));
     };
-
-    refreshHeroSettings();
 
     window.addEventListener('storage', refreshHeroSettings);
     window.addEventListener(CATALOG_STORAGE_EVENT, refreshHeroSettings);

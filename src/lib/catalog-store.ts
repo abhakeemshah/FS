@@ -9,6 +9,16 @@ export const LANDING_SECTION_VISIBILITY_STORAGE_KEY = 'fs-communication:landing-
 export const CATALOG_STORAGE_EVENT = 'products-storage-updated';
 export const CATALOG_HIDDEN_CATEGORIES_KEY = 'fs-communication:hidden-categories';
 
+const CATALOG_SYNC_KEYS = new Set([
+  CATALOG_CATEGORIES_STORAGE_KEY,
+  CATALOG_PRODUCTS_STORAGE_KEY,
+  CATALOG_LISTS_STORAGE_KEY,
+  CATALOG_SELECTED_LIST_KEY,
+  LANDING_HERO_STORAGE_KEY,
+  LANDING_SECTION_VISIBILITY_STORAGE_KEY,
+  CATALOG_HIDDEN_CATEGORIES_KEY,
+]);
+
 export type CatalogCategoryRecord = {
   id: string;
   slug: string;
@@ -91,6 +101,17 @@ export function readStoredArray<T>(storageKey: string): T[] {
   }
 }
 
+export function parseStoredArray<T>(rawValue: string | null | undefined): T[] {
+  if (!rawValue) return [];
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function readStoredValue<T>(storageKey: string): T | null {
   if (typeof window === 'undefined') return null;
 
@@ -103,10 +124,35 @@ export function readStoredValue<T>(storageKey: string): T | null {
     return null;
   }
 }
+
+export function parseStoredValue<T>(rawValue: string | null | undefined): T | null {
+  if (!rawValue) return null;
+
+  try {
+    return JSON.parse(rawValue) as T;
+  } catch {
+    return null;
+  }
+}
+
+function syncCatalogSnapshot(storageKey: string, value: string | null) {
+  if (typeof window === 'undefined') return;
+  if (!CATALOG_SYNC_KEYS.has(storageKey)) return;
+
+  void fetch('/api/catalog-state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    cache: 'no-store',
+    body: JSON.stringify({ key: storageKey, value }),
+  }).catch(() => null);
+}
 export function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
   if (typeof window === 'undefined') return;
 
-  window.localStorage.setItem(storageKey, JSON.stringify(value));
+  const serialized = JSON.stringify(value);
+  window.localStorage.setItem(storageKey, serialized);
+  syncCatalogSnapshot(storageKey, serialized);
   // Also write a changing timestamp to force a storage event in other tabs
   try {
     window.localStorage.setItem('fs-communication:last-updated', String(Date.now()));
@@ -121,7 +167,9 @@ export function writeStoredValue<T>(storageKey: string, value: T, options?: AppW
   if (typeof window === 'undefined') return;
 
 
-  window.localStorage.setItem(storageKey, JSON.stringify(value));
+  const serialized = JSON.stringify(value);
+  window.localStorage.setItem(storageKey, serialized);
+  syncCatalogSnapshot(storageKey, serialized);
   // Also write a changing timestamp to force a storage event in other tabs
   try {
     window.localStorage.setItem('fs-communication:last-updated', String(Date.now()));
