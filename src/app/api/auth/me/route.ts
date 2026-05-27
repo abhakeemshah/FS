@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest) {
 			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 		}
 
-		const payload = await jwtVerify(authToken);
+		const payload = (await jwtVerify(authToken)) as { id: string; email?: string; role: 'admin' | 'staff' };
 
 		if (payload.role === 'admin') {
 			const configuredAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();

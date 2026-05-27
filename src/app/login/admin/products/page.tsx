@@ -28,6 +28,8 @@ import {
 import { canCurrentStaffAccessModule, hasAdminSession, STAFF_AUTH_EVENT } from '../../../../lib/staff-auth';
 import { landingCategories } from '../../../../data/categories';
 
+const PRODUCTS_EVENT = 'products-storage-updated';
+
 type ProductStatus = 'active' | 'draft';
 
 type CategoryRecord = CatalogCategoryRecord;
