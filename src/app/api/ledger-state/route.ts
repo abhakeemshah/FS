@@ -4,8 +4,13 @@ import { jwtVerify } from '../../../lib/jwt';
 import { readLedgerSnapshot, updateLedgerSnapshot } from '../../../lib/ledger-server';
 
 export async function GET() {
-  const snapshot = await readLedgerSnapshot();
-  return NextResponse.json({ snapshot });
+  try {
+    const snapshot = await readLedgerSnapshot();
+    return NextResponse.json({ snapshot });
+  } catch (error) {
+    console.error('Ledger GET error:', error);
+    return NextResponse.json({ error: 'Failed to read ledger snapshot' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
