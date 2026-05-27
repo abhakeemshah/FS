@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { jwtVerify } from '../../../../lib/jwt';
-import { readLedgerSnapshot, updateLedgerSnapshot } from '../../../../lib/ledger-server';
+import { jwtVerify } from '../../../lib/jwt';
+import { readLedgerSnapshot, updateLedgerSnapshot } from '../../../lib/ledger-server';
 
 export async function GET() {
   const snapshot = await readLedgerSnapshot();

@@ -70,10 +70,6 @@ const buildReceivablesAgingRows = (bills: SalesBillLike[]) => {
   return sorted;
 };
 
-const buildMovementTimeline = (bills: SalesBillLike[], purchases: PurchaseRecordLike[], payments: LedgerPaymentRecord[]) => {
-  return bills;
-};
-
 const buildPrintableReportsInvoice = (title: string, subtitle: string, content: string) => `
 <!DOCTYPE html>
 <html lang="en">
