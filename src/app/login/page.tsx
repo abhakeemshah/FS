@@ -135,6 +135,10 @@ function RightPanel() {
       );
     } catch (err) {
       console.error(err);
+      const message = err instanceof Error ? err.message : '';
+      if (message === 'Unexpected response' || message === 'Invalid credentials') {
+        return;
+      }
       if (!error) {
         setError('An error occurred.');
       }
