@@ -26,9 +26,19 @@ import {
 import {
 	CATALOG_PRODUCTS_STORAGE_KEY,
 	CATALOG_STORAGE_EVENT,
-	readStoredArray as readCatalogStoredArray,
 	type CatalogProductRecord,
 } from '../../../../../lib/catalog-store';
+
+const parseSnapshotArray = <T,>(snapshot: Record<string, string>, key: string): T[] => {
+	try {
+		const raw = snapshot[key];
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? (parsed as T[]) : [];
+	} catch {
+		return [];
+	}
+};
 
 export default function AdminSalesInvoicesPage({ readOnly = false }: { readOnly?: boolean }) {
 	const router = useRouter();
@@ -76,18 +86,37 @@ export default function AdminSalesInvoicesPage({ readOnly = false }: { readOnly?
 	};
 
 	useEffect(() => {
-		const storedBills = readStoredArray<BillRecord>(SALES_BILLS_STORAGE_KEY);
-		const normalizedBills = storedBills.map((bill, index) => ({
-			...bill,
-			billId: bill.billId ?? `${bill.invoiceNumber}-${bill.date}-${bill.time}-${index}`,
-		}));
+		const loadFromServer = async () => {
+			try {
+				const [ledgerResponse, catalogResponse] = await Promise.all([
+					fetch('/api/ledger-state', { cache: 'no-store', credentials: 'include' }),
+					fetch('/api/catalog-state', { cache: 'no-store', credentials: 'include' }),
+				]);
 
-		setBills(normalizedBills);
-		setIsBillsHydrated(true);
+				if (ledgerResponse.ok) {
+					const ledgerPayload = (await ledgerResponse.json()) as { snapshot?: Record<string, string> };
+					const storedBills = parseSnapshotArray<BillRecord>(ledgerPayload.snapshot ?? {}, SALES_BILLS_STORAGE_KEY);
+					const normalizedBills = storedBills.map((bill, index) => ({
+						...bill,
+						billId: bill.billId ?? `${bill.invoiceNumber}-${bill.date}-${bill.time}-${index}`,
+					}));
+					setBills(normalizedBills);
+					setIsBillsHydrated(true);
+					if (normalizedBills.some((bill, index) => bill.billId !== storedBills[index]?.billId)) {
+						writeStoredArray(SALES_BILLS_STORAGE_KEY, normalizedBills, { silent: !feedbackReadyRef.current });
+					}
+				}
 
-		if (normalizedBills.some((bill, index) => bill.billId !== storedBills[index]?.billId)) {
-			writeStoredArray(SALES_BILLS_STORAGE_KEY, normalizedBills, { silent: !feedbackReadyRef.current });
-		}
+				if (catalogResponse.ok) {
+					const catalogPayload = (await catalogResponse.json()) as { snapshot?: Record<string, string> };
+					setProducts(parseSnapshotArray<CatalogProductRecord>(catalogPayload.snapshot ?? {}, CATALOG_PRODUCTS_STORAGE_KEY));
+				}
+			} catch {
+				// keep current in-memory state if the server snapshot is temporarily unavailable
+			}
+		};
+
+		void loadFromServer();
 	}, []);
 
 	useEffect(() => {
@@ -144,15 +173,23 @@ export default function AdminSalesInvoicesPage({ readOnly = false }: { readOnly?
 	}, []);
 
 	useEffect(() => {
-		if (typeof window === 'undefined') return;
-		const load = () => {
-			const list = readCatalogStoredArray<CatalogProductRecord>(CATALOG_PRODUCTS_STORAGE_KEY);
-			setProducts(list);
+		const load = async () => {
+			try {
+				const response = await fetch('/api/catalog-state', { cache: 'no-store', credentials: 'include' });
+				if (!response.ok) return;
+				const payload = (await response.json()) as { snapshot?: Record<string, string> };
+				setProducts(parseSnapshotArray<CatalogProductRecord>(payload.snapshot ?? {}, CATALOG_PRODUCTS_STORAGE_KEY));
+			} catch {
+				// ignore
+			}
 		};
-		load();
-		const onStorage = () => load();
-		window.addEventListener(CATALOG_STORAGE_EVENT, onStorage);
-		return () => window.removeEventListener(CATALOG_STORAGE_EVENT, onStorage);
+		const onChange = () => { void load(); };
+		window.addEventListener(CATALOG_STORAGE_EVENT, onChange);
+		window.addEventListener('storage', onChange);
+		return () => {
+			window.removeEventListener(CATALOG_STORAGE_EVENT, onChange);
+			window.removeEventListener('storage', onChange);
+		};
 	}, []);
 
 	const totals = useMemo(() => {

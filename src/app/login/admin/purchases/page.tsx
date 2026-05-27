@@ -8,6 +8,17 @@ import { AppModal } from '../../../../components/app-modal';
 import { PURCHASES_STORAGE_KEY, readStoredArray, writeStoredArray } from '../../../../lib/ledger-store';
 import { paymentMethodOptions, buildPrintablePurchaseInvoice } from '../../../../lib/sales-utils';
 
+const parseSnapshotArray = <T,>(snapshot: Record<string, string>, key: string): T[] => {
+    try {
+        const raw = snapshot[key];
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+        return [];
+    }
+};
+
 const purchaseStatusOptions = ['Pending', 'Received', 'Partially Received', 'Cancelled'];
 
 type PurchaseLineItem = {
@@ -232,10 +243,22 @@ export default function AdminPurchasesPage() {
 
     useEffect(() => {
         if (!mounted) return;
-        const stored = readStoredArray<Partial<PurchaseRecord>>(PURCHASES_STORAGE_KEY);
-        const normalized = stored.map((purchase, index) => normalizePurchase(purchase, index));
-        setPurchases(normalized);
-        setIsHydrated(true);
+
+        const loadFromServer = async () => {
+            try {
+                const response = await fetch('/api/ledger-state', { cache: 'no-store', credentials: 'include' });
+                if (!response.ok) return;
+                const payload = (await response.json()) as { snapshot?: Record<string, string> };
+                const stored = parseSnapshotArray<Partial<PurchaseRecord>>(payload.snapshot ?? {}, PURCHASES_STORAGE_KEY);
+                const normalized = stored.map((purchase, index) => normalizePurchase(purchase, index));
+                setPurchases(normalized);
+                setIsHydrated(true);
+            } catch {
+                // keep current state if the server snapshot is unavailable
+            }
+        };
+
+        void loadFromServer();
     }, [mounted]);
 
     useEffect(() => {

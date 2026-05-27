@@ -8,6 +8,17 @@ import { AppModal } from '../../../../../components/app-modal';
 import { LEDGER_STORAGE_EVENT, SALES_BILLS_STORAGE_KEY, readStoredArray } from '../../../../../lib/ledger-store';
 import { BUSINESS_PROFILE } from '../../../../../lib/business-profile';
 
+const parseSnapshotArray = <T,>(snapshot: Record<string, string>, key: string): T[] => {
+	try {
+		const raw = snapshot[key];
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? (parsed as T[]) : [];
+	} catch {
+		return [];
+	}
+};
+
 type SalesLineItem = {
 	product: string;
 	quantity: number;
@@ -311,15 +322,22 @@ export default function CustomerPartiesPage() {
 	const [expandedCustomerName, setExpandedCustomerName] = useState<string | null>(null);
 
 	useEffect(() => {
-		const refreshCustomerBills = () => {
-			setCustomerBills(readStoredArray<SalesBillRecord>(SALES_BILLS_STORAGE_KEY).sort(sortByRecent));
+		const refreshCustomerBills = async () => {
+			try {
+				const response = await fetch('/api/ledger-state', { cache: 'no-store', credentials: 'include' });
+				if (!response.ok) return;
+				const payload = (await response.json()) as { snapshot?: Record<string, string> };
+				setCustomerBills(parseSnapshotArray<SalesBillRecord>(payload.snapshot ?? {}, SALES_BILLS_STORAGE_KEY).sort(sortByRecent));
+			} catch {
+				// keep current state if the server snapshot is unavailable
+			}
 		};
 
 		const handleLedgerChange = () => {
-			refreshCustomerBills();
+			void refreshCustomerBills();
 		};
 
-		refreshCustomerBills();
+		void refreshCustomerBills();
 		window.addEventListener('storage', handleLedgerChange);
 		window.addEventListener(LEDGER_STORAGE_EVENT, handleLedgerChange);
 

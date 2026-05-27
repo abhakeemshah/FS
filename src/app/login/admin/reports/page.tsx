@@ -8,7 +8,6 @@ import {
   MANUAL_PAYMENTS_STORAGE_KEY,
   PURCHASES_STORAGE_KEY,
   SALES_BILLS_STORAGE_KEY,
-  readStoredArray,
   type LedgerPaymentRecord,
   type PurchaseRecordLike,
   type SalesBillLike,
@@ -41,17 +40,23 @@ const formatDateTimeStamp = (date: string, time: string) => new Date(`${date}T${
 
 const formatActor = (value?: string) => value?.trim() || 'Unknown';
 
-const buildDailySalesRows = () => {
-  const bills = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY);
+const parseSnapshotArray = <T,>(snapshot: Record<string, string>, key: string): T[] => {
+  try {
+    const raw = snapshot[key];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const buildDailySalesRows = (bills: SalesBillLike[]) => {
   const today = new Date().toISOString().slice(0, 10);
   return bills.filter((bill) => bill.date.slice(0, 10) === today);
 };
 
-const buildProfitSummary = () => {
-  const bills = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY);
-  const purchases = readStoredArray<PurchaseRecordLike>(PURCHASES_STORAGE_KEY);
-  const payments = readStoredArray<LedgerPaymentRecord>(MANUAL_PAYMENTS_STORAGE_KEY);
-
+const buildProfitSummary = (bills: SalesBillLike[], purchases: PurchaseRecordLike[], payments: LedgerPaymentRecord[]) => {
   const salesTotal = bills.reduce((sum, bill) => sum + (Number.isFinite(bill.total) ? bill.total : 0), 0);
   const purchaseTotal = purchases.reduce((sum, purchase) => sum + (Number.isFinite(purchase.total) ? purchase.total : 0), 0);
   const manualIncoming = payments.filter((payment) => payment.direction === 'Incoming').reduce((sum, payment) => sum + payment.amount, 0);
@@ -60,10 +65,12 @@ const buildProfitSummary = () => {
   return { salesTotal, purchaseTotal, manualIncoming, manualOutgoing, netProfit: salesTotal - purchaseTotal };
 };
 
-const buildReceivablesAgingRows = () => {
-  const bills = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY)
-    .slice()
-    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+const buildReceivablesAgingRows = (bills: SalesBillLike[]) => {
+  const sorted = bills.slice().sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+  return sorted;
+};
+
+const buildMovementTimeline = (bills: SalesBillLike[], purchases: PurchaseRecordLike[], payments: LedgerPaymentRecord[]) => {
   return bills;
 };
 
@@ -345,10 +352,7 @@ const buildReceivablesAgingPrintable = (rows: SalesBillLike[]) => {
   return buildPrintableReportsInvoice('Receivables Aging', 'Accounts receivable report', body);
 };
 
-const buildMovementTimeline = () => {
-  const bills = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY);
-  const purchases = readStoredArray<PurchaseRecordLike>(PURCHASES_STORAGE_KEY);
-  const payments = readStoredArray<LedgerPaymentRecord>(MANUAL_PAYMENTS_STORAGE_KEY);
+const buildMovementTimeline = (bills: SalesBillLike[], purchases: PurchaseRecordLike[], payments: LedgerPaymentRecord[]) => {
 
   const saleRows: MovementRow[] = bills.map((bill) => ({
     id: bill.invoiceNumber,
@@ -395,12 +399,14 @@ export default function AdminReportsPage() {
   const router = useRouter();
   const { withLoading } = useAppFeedback();
   const [accessState, setAccessState] = useState<'checking' | 'allowed' | 'denied'>('checking');
-  const [movements, setMovements] = useState<MovementRow[]>([]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Printable Preview');
   const [previewFilename, setPreviewFilename] = useState('report-preview');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const previewFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const [salesBills, setSalesBills] = useState<SalesBillLike[]>([]);
+  const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecordLike[]>([]);
+  const [manualPayments, setManualPayments] = useState<LedgerPaymentRecord[]>([]);
 
   useEffect(() => {
     const updateAccess = () => {
@@ -423,19 +429,32 @@ export default function AdminReportsPage() {
   }, [router]);
 
   useEffect(() => {
-    const refreshMovements = () => {
-      setMovements(buildMovementTimeline());
+    const refresh = async () => {
+      try {
+        const response = await fetch('/api/ledger-state', { cache: 'no-store', credentials: 'include' });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { snapshot?: Record<string, string> };
+        const snapshot = payload.snapshot ?? {};
+        setSalesBills(parseSnapshotArray<SalesBillLike>(snapshot, SALES_BILLS_STORAGE_KEY));
+        setPurchaseRecords(parseSnapshotArray<PurchaseRecordLike>(snapshot, PURCHASES_STORAGE_KEY));
+        setManualPayments(parseSnapshotArray<LedgerPaymentRecord>(snapshot, MANUAL_PAYMENTS_STORAGE_KEY));
+      } catch {
+        // keep current state if the server snapshot is unavailable
+      }
     };
 
-    refreshMovements();
-    window.addEventListener('storage', refreshMovements);
-    window.addEventListener(LEDGER_STORAGE_EVENT, refreshMovements);
+    void refresh();
+    const onLedgerChange = () => { void refresh(); };
+    window.addEventListener('storage', onLedgerChange);
+    window.addEventListener(LEDGER_STORAGE_EVENT, onLedgerChange);
 
     return () => {
-      window.removeEventListener('storage', refreshMovements);
-      window.removeEventListener(LEDGER_STORAGE_EVENT, refreshMovements);
+      window.removeEventListener('storage', onLedgerChange);
+      window.removeEventListener(LEDGER_STORAGE_EVENT, onLedgerChange);
     };
   }, []);
+
+  const movements = useMemo(() => buildMovementTimeline(salesBills, purchaseRecords, manualPayments), [manualPayments, purchaseRecords, salesBills]);
 
   const movementStats = useMemo(() => {
     return movements.reduce(
@@ -449,8 +468,8 @@ export default function AdminReportsPage() {
     );
   }, [movements]);
 
-  const profitSummary = useMemo(() => buildProfitSummary(), []);
-  const receivablesRows = useMemo(() => buildReceivablesAgingRows(), []);
+  const profitSummary = useMemo(() => buildProfitSummary(salesBills, purchaseRecords, manualPayments), [manualPayments, purchaseRecords, salesBills]);
+  const receivablesRows = useMemo(() => buildReceivablesAgingRows(salesBills), [salesBills]);
 
   const openReportPreview = (html: string, title: string, filename: string) => {
     setPreviewHtml(html);
@@ -525,7 +544,7 @@ export default function AdminReportsPage() {
 
         <div className="border-b border-slate-200 px-4 py-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <button className="rounded-lg border border-slate-200 bg-white p-3 text-left text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700" type="button" onClick={() => void withLoading(() => openReportPreview(buildDailySalesPrintable(buildDailySalesRows()), 'Daily Sales Report', 'daily-sales-report'), { loadingLabel: 'Preparing sales preview...', successMessage: 'Sales preview opened' })}>Preview Daily Sales PDF</button>
+            <button className="rounded-lg border border-slate-200 bg-white p-3 text-left text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700" type="button" onClick={() => void withLoading(() => openReportPreview(buildDailySalesPrintable(buildDailySalesRows(salesBills)), 'Daily Sales Report', 'daily-sales-report'), { loadingLabel: 'Preparing sales preview...', successMessage: 'Sales preview opened' })}>Preview Daily Sales PDF</button>
             <button className="rounded-lg border border-slate-200 bg-white p-3 text-left text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700" type="button" onClick={() => void withLoading(() => openReportPreview(buildProfitSummaryPrintable(profitSummary), 'Profit Summary', 'profit-summary-report'), { loadingLabel: 'Preparing profit preview...', successMessage: 'Profit preview opened' })}>Preview Profit Summary PDF</button>
             <button className="rounded-lg border border-slate-200 bg-white p-3 text-left text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700" type="button" onClick={() => void withLoading(() => openReportPreview(buildReceivablesAgingPrintable(receivablesRows), 'Receivables Aging', 'receivables-aging-report'), { loadingLabel: 'Preparing receivables preview...', successMessage: 'Receivables preview opened' })}>Preview Receivables Aging PDF</button>
           </div>

@@ -17,6 +17,17 @@ import {
 	type SalesBillLike,
 } from '../../../../lib/ledger-store';
 
+const parseSnapshotArray = <T,>(snapshot: Record<string, string>, key: string): T[] => {
+	try {
+		const raw = snapshot[key];
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? (parsed as T[]) : [];
+	} catch {
+		return [];
+	}
+};
+
 type AutoPaymentSource = 'Sale' | 'Purchase' | 'Manual';
 
 type AutoPaymentRow = LedgerPaymentRecord & {
@@ -52,22 +63,34 @@ export default function AdminPaymentsPage({ readOnly = false }: { readOnly?: boo
 	}, [router]);
 
 	useEffect(() => {
-		const loadPayments = () => {
-			setSalesBills(readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY));
-			setPurchases(readStoredArray<PurchaseRecordLike>(PURCHASES_STORAGE_KEY));
-			setManualPayments(readStoredArray<LedgerPaymentRecord>(MANUAL_PAYMENTS_STORAGE_KEY));
-			setIsHydrated(true);
+		const loadPayments = async () => {
+			try {
+				const response = await fetch('/api/ledger-state', { cache: 'no-store', credentials: 'include' });
+				if (!response.ok) return;
+				const payload = (await response.json()) as { snapshot?: Record<string, string> };
+				const snapshot = payload.snapshot ?? {};
+				setSalesBills(parseSnapshotArray<SalesBillLike>(snapshot, SALES_BILLS_STORAGE_KEY));
+				setPurchases(parseSnapshotArray<PurchaseRecordLike>(snapshot, PURCHASES_STORAGE_KEY));
+				setManualPayments(parseSnapshotArray<LedgerPaymentRecord>(snapshot, MANUAL_PAYMENTS_STORAGE_KEY));
+				setIsHydrated(true);
+			} catch {
+				// keep current state if the server snapshot is unavailable
+			}
 		};
 
-		loadPayments();
-		window.addEventListener(LEDGER_STORAGE_EVENT, loadPayments);
-		window.addEventListener('storage', loadPayments);
-		window.addEventListener('focus', loadPayments);
+		const handleLedgerChange = () => {
+			void loadPayments();
+		};
+
+		void loadPayments();
+		window.addEventListener(LEDGER_STORAGE_EVENT, handleLedgerChange);
+		window.addEventListener('storage', handleLedgerChange);
+		window.addEventListener('focus', handleLedgerChange);
 
 		return () => {
-			window.removeEventListener(LEDGER_STORAGE_EVENT, loadPayments);
-			window.removeEventListener('storage', loadPayments);
-			window.removeEventListener('focus', loadPayments);
+			window.removeEventListener(LEDGER_STORAGE_EVENT, handleLedgerChange);
+			window.removeEventListener('storage', handleLedgerChange);
+			window.removeEventListener('focus', handleLedgerChange);
 		};
 	}, []);
 
