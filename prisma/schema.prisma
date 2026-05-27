@@ -27,3 +27,10 @@ model CatalogSnapshot {
   value     String?
   updatedAt DateTime @updatedAt
 }
+
+model LedgerSnapshot {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String?
+  updatedAt DateTime @updatedAt
+}

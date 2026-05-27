@@ -7,6 +7,12 @@ export const PURCHASES_STORAGE_KEY = 'fs-communication:purchases';
 export const MANUAL_PAYMENTS_STORAGE_KEY = 'fs-communication:manual-payments';
 export const LEDGER_STORAGE_EVENT = 'ledger-storage-updated';
 
+const LEDGER_SYNC_KEYS = new Set([
+	SALES_BILLS_STORAGE_KEY,
+	PURCHASES_STORAGE_KEY,
+	MANUAL_PAYMENTS_STORAGE_KEY,
+]);
+
 export type SalesBillLike = {
 	invoiceNumber: string;
 	date: string;
@@ -60,10 +66,26 @@ export function readStoredArray<T>(storageKey: string): T[] {
 		return [];
 	}
 }
+
+function syncLedgerSnapshot(storageKey: string, value: string | null) {
+	if (typeof window === 'undefined') return;
+	if (!LEDGER_SYNC_KEYS.has(storageKey)) return;
+
+	void fetch('/api/ledger-state', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		cache: 'no-store',
+		body: JSON.stringify({ key: storageKey, value }),
+	}).catch(() => null);
+}
+
 export function writeStoredArray<T>(storageKey: string, value: T[], options?: AppWriteOptions) {
 	if (typeof window === 'undefined') return;
 
-	window.localStorage.setItem(storageKey, JSON.stringify(value));
+	const serialized = JSON.stringify(value);
+	window.localStorage.setItem(storageKey, serialized);
+	syncLedgerSnapshot(storageKey, serialized);
 	window.dispatchEvent(new Event(LEDGER_STORAGE_EVENT));
 	if (!options?.silent) emitAppActionSuccess(storageKey);
 }

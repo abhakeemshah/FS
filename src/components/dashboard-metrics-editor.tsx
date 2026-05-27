@@ -56,7 +56,7 @@ const normalizeDateKey = (value: string) => value.slice(0, 10);
 
 const normalizeMonthKey = (value: string) => value.slice(0, 7);
 
-function readMetricOverrides(): Partial<MetricValues> {
+export function readMetricOverrides(): Partial<MetricValues> {
   if (typeof window === 'undefined') return {};
 
   try {
@@ -70,12 +70,30 @@ function readMetricOverrides(): Partial<MetricValues> {
   }
 }
 
-function saveMetricOverrides(value: Partial<MetricValues>) {
+export function saveMetricOverrides(value: Partial<MetricValues>) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(DASHBOARD_METRICS_STORAGE_KEY, JSON.stringify(value));
+  void fetch('/api/ledger-state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    cache: 'no-store',
+    body: JSON.stringify({ key: DASHBOARD_METRICS_STORAGE_KEY, value: JSON.stringify(value) }),
+  }).catch(() => null);
 }
 
-function buildLiveMetricValues(): MetricValues {
+export function parseMetricOverrides(raw: string | null | undefined): Partial<MetricValues> {
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<MetricValues>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function buildLiveMetricValues(overrides: Partial<MetricValues> = readMetricOverrides()): MetricValues {
   if (typeof window === 'undefined') return createEmptyValues();
 
   const salesBills = readStoredArray<SalesBillLike>(SALES_BILLS_STORAGE_KEY);
@@ -150,8 +168,6 @@ function buildLiveMetricValues(): MetricValues {
       return sum + (selling - actual);
     }, 0);
 
-  const overrides = readMetricOverrides();
-
   const liveValues: MetricValues = {
     'total-receivables': overrides['total-receivables'] ?? '0',
     'total-payables': overrides['total-payables'] ?? '0',
@@ -167,7 +183,7 @@ function buildLiveMetricValues(): MetricValues {
   return liveValues;
 }
 
-export function DashboardMetricsEditor() {
+export function DashboardMetricsEditor({ initialOverrides = {} }: { initialOverrides?: Partial<MetricValues> }) {
   const [values, setValues] = useState<MetricValues>(createEmptyValues());
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
@@ -177,7 +193,7 @@ export function DashboardMetricsEditor() {
   const metricsByKey = useMemo(() => Object.fromEntries(metricConfigs.map((metric) => [metric.key, metric])), []);
 
   const refreshValues = () => {
-    setValues(buildLiveMetricValues());
+    setValues(buildLiveMetricValues(readMetricOverrides()));
   };
 
   const openConfirm = (key: string) => {
@@ -191,6 +207,10 @@ export function DashboardMetricsEditor() {
   };
 
   useEffect(() => {
+    if (Object.keys(initialOverrides).length) {
+      saveMetricOverrides(initialOverrides);
+    }
+
     refreshValues();
 
     const handleLiveUpdate: EventListener = () => refreshValues();

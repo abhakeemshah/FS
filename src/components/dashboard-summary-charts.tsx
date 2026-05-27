@@ -155,7 +155,7 @@ function ChartCard({
   );
 }
 
-export function DashboardSummaryCharts() {
+export function DashboardSummaryCharts({ initialRecords = [] }: { initialRecords?: SalesBillLike[] }) {
   const [invoiceValues, setInvoiceValues] = useState<number[]>(createEmptySeries());
   const [salesValues, setSalesValues] = useState<number[]>(createEmptySeries());
 
@@ -167,7 +167,13 @@ export function DashboardSummaryCharts() {
       setSalesValues(nextSales);
     };
 
-    refresh();
+    if (initialRecords.length) {
+      const { invoiceValues: nextInvoices, salesValues: nextSales } = buildSeries(initialRecords);
+      setInvoiceValues(nextInvoices);
+      setSalesValues(nextSales);
+    } else {
+      refresh();
+    }
 
     const onStorage: EventListener = () => refresh();
     window.addEventListener('storage', onStorage);
@@ -177,7 +183,7 @@ export function DashboardSummaryCharts() {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener(LEDGER_STORAGE_EVENT, onStorage);
     };
-  }, []);
+  }, [initialRecords]);
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
