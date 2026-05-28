@@ -142,11 +142,25 @@ function writeClientCookie(name: string, value: string | null) {
 	window.document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${24 * 60 * 60}; samesite=lax`;
 }
 
+function readClientCookie(name: string) {
+	if (typeof window === 'undefined') return null;
+
+	const prefix = `${name}=`;
+	const entries = window.document.cookie ? window.document.cookie.split('; ') : [];
+	for (const entry of entries) {
+		if (entry.startsWith(prefix)) {
+			return decodeURIComponent(entry.slice(prefix.length));
+		}
+	}
+
+	return null;
+}
+
 function readJson<T>(key: string, fallback: T): T {
 	if (typeof window === 'undefined') return fallback;
 
 	try {
-		const rawValue = window.localStorage.getItem(key);
+		const rawValue = readClientCookie(key) ?? window.localStorage.getItem(key);
 		if (!rawValue) return fallback;
 		return decodeStoredJson<T>(rawValue);
 	} catch {
@@ -155,7 +169,7 @@ function readJson<T>(key: string, fallback: T): T {
 }
 function writeJson<T>(key: string, value: T, options?: AppWriteOptions) {
 	if (typeof window === 'undefined') return;
-	window.localStorage.setItem(key, encodeStoredJson(value));
+	writeClientCookie(key, encodeStoredJson(value));
 	dispatchAuthChange();
 	if (!options?.silent) emitAppActionSuccess(key);
 }
@@ -203,7 +217,7 @@ export function readStaffAccessMetaMap(): StaffAccessMetaMap {
 	if (typeof window === 'undefined') return {};
 
 	try {
-		const raw = window.localStorage.getItem(STAFF_ACCESS_META_KEY);
+		const raw = readClientCookie(STAFF_ACCESS_META_KEY) ?? window.localStorage.getItem(STAFF_ACCESS_META_KEY);
 		if (!raw) return {};
 		const parsed = decodeStoredJson<StaffAccessMetaMap>(raw);
 		return parsed && typeof parsed === 'object' ? parsed : {};
@@ -343,7 +357,7 @@ export function saveStaffSession(account: Pick<StaffAccount, 'id' | 'name' | 'us
 	};
 
 	if (typeof window !== 'undefined') {
-		window.localStorage.setItem(STAFF_SESSION_STORAGE_KEY, encodeStoredJson(session));
+		writeClientCookie(STAFF_SESSION_STORAGE_KEY, encodeStoredJson(session));
 		writeClientCookie(STAFF_SESSION_COOKIE, '1');
 		dispatchAuthChange();
 	}
@@ -361,7 +375,7 @@ export function readStaffSession(): StaffSession | null {
 	if (typeof window === 'undefined') return null;
 
 	try {
-		const rawValue = window.localStorage.getItem(STAFF_SESSION_STORAGE_KEY);
+		const rawValue = readClientCookie(STAFF_SESSION_STORAGE_KEY) ?? window.localStorage.getItem(STAFF_SESSION_STORAGE_KEY);
 		if (!rawValue) return null;
 
 		const session = decodeStoredJson<StaffSession>(rawValue);
@@ -372,7 +386,7 @@ export function readStaffSession(): StaffSession | null {
 		// entry and the client session cookie. Do NOT clear all localStorage —
 		// that was destructive and removed unrelated persisted data.
 		try {
-			window.localStorage.removeItem(STAFF_SESSION_STORAGE_KEY);
+			writeClientCookie(STAFF_SESSION_STORAGE_KEY, null);
 		} catch {
 			// ignore
 		}
@@ -387,32 +401,32 @@ export function readStaffSession(): StaffSession | null {
 
 export function clearStaffSession() {
 	if (typeof window === 'undefined') return;
-	window.localStorage.removeItem(STAFF_SESSION_STORAGE_KEY);
+	writeClientCookie(STAFF_SESSION_STORAGE_KEY, null);
 	writeClientCookie(STAFF_SESSION_COOKIE, null);
 	dispatchAuthChange();
 }
 
 export function markAdminSessionActive() {
 	if (typeof window === 'undefined') return;
-	window.localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, new Date().toISOString());
+	writeClientCookie(ADMIN_SESSION_STORAGE_KEY, new Date().toISOString());
 	dispatchAuthChange();
 }
 
 export function hasAdminSession() {
 	if (typeof window === 'undefined') return false;
 	try {
-		const rawValue = window.localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+		const rawValue = readClientCookie(ADMIN_SESSION_STORAGE_KEY) ?? window.localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
 		if (!rawValue) return false;
 
 		const issuedAt = new Date(rawValue).getTime();
 		if (!Number.isFinite(issuedAt)) {
-			window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+			writeClientCookie(ADMIN_SESSION_STORAGE_KEY, null);
 			return false;
 		}
 
 		const isFresh = Date.now() - issuedAt < 24 * 60 * 60 * 1000;
 		if (!isFresh) {
-			window.localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+			writeClientCookie(ADMIN_SESSION_STORAGE_KEY, null);
 			return false;
 		}
 
