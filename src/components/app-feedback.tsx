@@ -1,5 +1,7 @@
 'use client';
 
+import '../lib/disable-local-storage';
+
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { APP_ACTION_SUCCESS_EVENT, type AppActionSuccessDetail } from '../lib/app-feedback';
 

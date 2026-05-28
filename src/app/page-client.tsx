@@ -86,6 +86,27 @@ const normalizeHeroSettings = (settings: Partial<LandingHeroSettingsRecord> | nu
     : defaultLandingHeroSettings.overlayOpacity,
 });
 
+const readPreferredLanguage = (): 'en' | 'ur' => {
+  if (typeof window === 'undefined') return 'en';
+
+  try {
+    const savedLanguage = window.localStorage.getItem('landing-language');
+    return savedLanguage === 'ur' ? 'ur' : 'en';
+  } catch {
+    return 'en';
+  }
+};
+
+const savePreferredLanguage = (language: 'en' | 'ur') => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem('landing-language', language);
+  } catch {
+    // ignore browsers that block storage
+  }
+};
+
 type CatalogSnapshot = Record<string, string>;
 
 const buildLandingStateFromSnapshot = (snapshot: CatalogSnapshot) => {
@@ -253,7 +274,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [canScrollExtraLeft, setCanScrollExtraLeft] = useState(false);
   const [canScrollExtraRight, setCanScrollExtraRight] = useState(true);
-  const [language, setLanguage] = useState<'en' | 'ur'>('en');
+  const [language, setLanguage] = useState<'en' | 'ur'>(() => readPreferredLanguage());
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hotRightNowScrollerRef = useRef<HTMLDivElement | null>(null);
@@ -318,14 +339,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
   const t = (key: string): string => translations[language][key] || key;
 
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('landing-language') as 'en' | 'ur' | null;
-    if (savedLanguage) {
-      setLanguage(savedLanguage);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('landing-language', language);
+    savePreferredLanguage(language);
   }, [language]);
 
   useEffect(() => {
