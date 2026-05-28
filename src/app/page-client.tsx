@@ -631,7 +631,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
         </header>
 
         <div className="flex-1 min-w-0 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
-          <div className="mx-auto grid w-full max-w-7xl min-w-0 gap-5" id="featured">
+          <div className="mx-auto grid w-full min-w-0 gap-5 max-w-full" id="featured">
             <div className="min-w-0 space-y-5">
               <section className="relative overflow-hidden rounded-[18px] min-h-[320px] sm:min-h-[420px] lg:min-h-[520px] xl:min-h-[600px]" style={{ backgroundColor: heroSettings.backgroundColor }}>
                 <img

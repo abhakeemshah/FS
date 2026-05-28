@@ -96,11 +96,32 @@ function RightPanel() {
               preview: raw.slice(0, 200),
             });
             const looksLikeBotChallenge = /bot verification|verify you are not a robot|recaptcha|cloudflare|access denied/i.test(raw);
-            setError(
-              looksLikeBotChallenge
-                ? 'The hosting provider is blocking the login request with a bot verification page. Please disable bot protection for this site or whitelist /api routes.'
-                : (raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.')
-            );
+            // Try a quick health check to provide a clearer message for Hostinger/WAF issues
+            try {
+              const statusResp = await fetch('/api/status', { cache: 'no-store' });
+              const statusContentType = statusResp.headers.get('content-type') || '';
+              if (statusResp.ok && statusContentType.includes('application/json')) {
+                const statusJson = await statusResp.json();
+                // If status returns ok:false or filesystem/prisma issues, surface that
+                if (!statusJson?.ok) {
+                  setError('Server health check failed. Please check hosting environment.');
+                } else if (looksLikeBotChallenge) {
+                  setError('The hosting provider is blocking the login request with a bot verification page. Please disable bot protection or whitelist /api routes.');
+                } else {
+                  setError(raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.');
+                }
+              } else {
+                // If /api/status itself is blocked or returns HTML, it's almost certainly WAF
+                setError('Hosting provider is returning an HTML challenge or error for API requests. Please contact your host and whitelist API routes.');
+              }
+            } catch (healthErr) {
+              // Health check failed — assume host protection
+              setError(
+                looksLikeBotChallenge
+                  ? 'The hosting provider is blocking the login request with a bot verification page. Please disable bot protection for this site or whitelist /api routes.'
+                  : (raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.')
+              );
+            }
             throw new Error('Unexpected response');
           }
 
