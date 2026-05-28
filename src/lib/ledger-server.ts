@@ -7,7 +7,7 @@ import prisma from './db';
 
 export type LedgerSnapshot = Record<string, string>;
 
-export const LEDGER_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'ledger-snapshot.json');
+const LEDGER_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'ledger-snapshot.json');
 
 export async function readLedgerSnapshot(): Promise<LedgerSnapshot> {
   try {
