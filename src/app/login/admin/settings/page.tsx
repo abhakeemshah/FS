@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminShell } from '../../../../components/admin-shell';
 import { LEDGER_STORAGE_EVENT } from '../../../../lib/ledger-store';
@@ -140,33 +140,41 @@ const serializeBackupValue = (value: unknown) => {
   return JSON.stringify(value, null, 2);
 };
 
-const readSettings = (): AdminSettings => {
-  if (typeof window === 'undefined') return defaultSettings();
+const normalizeSettings = (parsed: Partial<AdminSettings> | null | undefined): AdminSettings => {
+  const businessName = (parsed?.businessName ?? BUSINESS_PROFILE.shopName).trim();
 
+  return {
+    businessName: !businessName || legacyBusinessNames.has(businessName) ? BUSINESS_PROFILE.shopName : businessName,
+    businessPhone: (parsed?.businessPhone ?? BUSINESS_PROFILE.contactNumber).trim() || BUSINESS_PROFILE.contactNumber,
+    businessEmail: (parsed?.businessEmail ?? BUSINESS_PROFILE.email).trim() || BUSINESS_PROFILE.email,
+    businessAddress: (parsed?.businessAddress ?? BUSINESS_PROFILE.address).trim() || BUSINESS_PROFILE.address,
+    salesPrefix: normalizePrefix(parsed?.salesPrefix ?? 'INV') || 'INV',
+    purchasePrefix: normalizePrefix(parsed?.purchasePrefix ?? 'PUR') || 'PUR',
+    paymentPrefix: normalizePrefix(parsed?.paymentPrefix ?? 'PAY') || 'PAY',
+  };
+};
+
+const loadSettings = async (): Promise<AdminSettings> => {
   try {
-    const raw = window.localStorage.getItem(ADMIN_SETTINGS_STORAGE_KEY);
-    if (!raw) return defaultSettings();
-    const parsed = JSON.parse(raw) as Partial<AdminSettings>;
+    const response = await fetch('/api/settings', { cache: 'no-store', credentials: 'include' });
+    if (!response.ok) return defaultSettings();
 
-    const businessName = (parsed.businessName ?? BUSINESS_PROFILE.shopName).trim();
-
-    return {
-      businessName: !businessName || legacyBusinessNames.has(businessName) ? BUSINESS_PROFILE.shopName : businessName,
-      businessPhone: (parsed.businessPhone ?? BUSINESS_PROFILE.contactNumber).trim() || BUSINESS_PROFILE.contactNumber,
-      businessEmail: (parsed.businessEmail ?? BUSINESS_PROFILE.email).trim() || BUSINESS_PROFILE.email,
-      businessAddress: (parsed.businessAddress ?? BUSINESS_PROFILE.address).trim() || BUSINESS_PROFILE.address,
-      salesPrefix: normalizePrefix(parsed.salesPrefix ?? 'INV') || 'INV',
-      purchasePrefix: normalizePrefix(parsed.purchasePrefix ?? 'PUR') || 'PUR',
-      paymentPrefix: normalizePrefix(parsed.paymentPrefix ?? 'PAY') || 'PAY',
-    };
+    const data = (await response.json()) as { settings?: Partial<AdminSettings> | null };
+    return normalizeSettings(data.settings ?? null);
   } catch {
     return defaultSettings();
   }
 };
 
-const saveSettings = (settings: AdminSettings) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(ADMIN_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+const saveSettings = async (settings: AdminSettings) => {
+  await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    cache: 'no-store',
+    body: JSON.stringify({ settings }),
+  });
+
   window.dispatchEvent(new Event('admin-settings-updated'));
   void fetch('/api/revalidate-site', { method: 'POST', cache: 'no-store', credentials: 'include' }).catch(() => null);
 };
@@ -182,7 +190,6 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     const updateAccess = () => {
-      const staffSession = readStaffSession();
       const allowed = hasAdminSession();
       setAccessState(allowed ? 'allowed' : 'denied');
 
@@ -202,7 +209,7 @@ export default function AdminSettingsPage() {
   }, [router]);
 
   useEffect(() => {
-    setSettings(readSettings());
+    void loadSettings().then(setSettings);
   }, []);
 
   if (accessState !== 'allowed') {
@@ -233,22 +240,14 @@ export default function AdminSettingsPage() {
     };
 
     setSettings(cleaned);
-    saveSettings(cleaned);
-    // Persist settings to server so changes are global across devices
-    void fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      cache: 'no-store',
-      body: JSON.stringify({ settings: cleaned }),
-    }).catch(() => null);
+    void saveSettings(cleaned);
     setNotice('Settings saved.');
   };
 
   const resetDefaults = () => {
     const defaults = defaultSettings();
     setSettings(defaults);
-    saveSettings(defaults);
+    void saveSettings(defaults);
     setNotice('Settings reset to defaults.');
     setErrorText(null);
   };

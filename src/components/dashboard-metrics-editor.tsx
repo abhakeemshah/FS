@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { AppModal } from './app-modal';
 import {
   LEDGER_STORAGE_EVENT,
+  fetchLedgerSnapshot,
+  primeLedgerSnapshot,
   type LedgerPaymentRecord,
   type PurchaseRecordLike,
   type SalesBillLike,
@@ -51,29 +53,25 @@ const normalizeDateKey = (value: string) => value.slice(0, 10);
 const normalizeMonthKey = (value: string) => value.slice(0, 7);
 
 export function readMetricOverrides(): Partial<MetricValues> {
-  if (typeof window === 'undefined') return {};
-
-  try {
-    const raw = window.localStorage.getItem(DASHBOARD_METRICS_STORAGE_KEY);
-    if (!raw) return {};
-
-    const parsed = JSON.parse(raw) as Partial<MetricValues>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
+  return {};
 }
 
 export function saveMetricOverrides(value: Partial<MetricValues>) {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(DASHBOARD_METRICS_STORAGE_KEY, JSON.stringify(value));
   void fetch('/api/ledger-state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     cache: 'no-store',
     body: JSON.stringify({ key: DASHBOARD_METRICS_STORAGE_KEY, value: JSON.stringify(value) }),
-  }).catch(() => null);
+  })
+    .then(async (response) => {
+      if (!response.ok) return;
+      const payload = (await response.json()) as { snapshot?: Record<string, string> };
+      primeLedgerSnapshot(payload.snapshot ?? {});
+      window.dispatchEvent(new Event(LEDGER_STORAGE_EVENT));
+    })
+    .catch(() => null);
 }
 
 export function parseMetricOverrides(raw: string | null | undefined): Partial<MetricValues> {
@@ -188,6 +186,7 @@ export function DashboardMetricsEditor({
   const [salesBills, setSalesBills] = useState<SalesBillLike[]>(initialSalesBills);
   const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecordLike[]>(initialPurchaseRecords);
   const [values, setValues] = useState<MetricValues>(createEmptyValues());
+  const [metricOverrides, setMetricOverrides] = useState<Partial<MetricValues>>(initialOverrides);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const [confirmPhase, setConfirmPhase] = useState<'opening' | 'open' | 'closing' | null>(null);
@@ -195,8 +194,8 @@ export function DashboardMetricsEditor({
 
   const metricsByKey = useMemo(() => Object.fromEntries(metricConfigs.map((metric) => [metric.key, metric])), []);
 
-  const refreshValues = () => {
-    setValues(buildLiveMetricValues(readMetricOverrides(), salesBills, purchaseRecords));
+  const refreshValues = (overrides: Partial<MetricValues> = metricOverrides) => {
+    setValues(buildLiveMetricValues(overrides, salesBills, purchaseRecords));
   };
 
   const openConfirm = (key: string) => {
@@ -210,15 +209,46 @@ export function DashboardMetricsEditor({
   };
 
   useEffect(() => {
-    if (Object.keys(initialOverrides).length) {
-      saveMetricOverrides(initialOverrides);
-    }
+    setMetricOverrides(initialOverrides);
   }, [initialOverrides]);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncOverrides = async () => {
+      try {
+        const snapshot = await fetchLedgerSnapshot();
+        const nextOverrides = parseMetricOverrides(snapshot[DASHBOARD_METRICS_STORAGE_KEY]);
+        if (!active) return;
+        setMetricOverrides(nextOverrides);
+        refreshValues(nextOverrides);
+      } catch {
+        // keep the current overrides if the server is temporarily unavailable
+      }
+    };
+
+    void syncOverrides();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     refreshValues();
 
-    const handleLiveUpdate: EventListener = () => refreshValues();
+    const handleLiveUpdate: EventListener = () => {
+      void (async () => {
+        try {
+          const snapshot = await fetchLedgerSnapshot();
+          const nextOverrides = parseMetricOverrides(snapshot[DASHBOARD_METRICS_STORAGE_KEY]);
+          setMetricOverrides(nextOverrides);
+          refreshValues(nextOverrides);
+        } catch {
+          refreshValues();
+        }
+      })();
+    };
     window.addEventListener('storage', handleLiveUpdate);
     window.addEventListener(LEDGER_STORAGE_EVENT, handleLiveUpdate);
 
@@ -226,7 +256,7 @@ export function DashboardMetricsEditor({
       window.removeEventListener('storage', handleLiveUpdate);
       window.removeEventListener(LEDGER_STORAGE_EVENT, handleLiveUpdate);
     };
-  }, [salesBills, purchaseRecords, initialOverrides]);
+  }, [salesBills, purchaseRecords, metricOverrides]);
 
   useEffect(() => {
     if (confirmPhase !== 'opening') return;
@@ -262,10 +292,11 @@ export function DashboardMetricsEditor({
     if (!confirmKey) return;
 
     const nextOverrides: Partial<MetricValues> = {
-      ...readMetricOverrides(),
+      ...metricOverrides,
       [confirmKey]: values[confirmKey] ?? '0',
     };
 
+    setMetricOverrides(nextOverrides);
     saveMetricOverrides(nextOverrides);
     refreshValues();
 
