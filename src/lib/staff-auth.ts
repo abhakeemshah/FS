@@ -213,6 +213,103 @@ export function saveStaffAccounts(accounts: StaffAccount[]) {
 	writeJson(STAFF_ACCOUNTS_STORAGE_KEY, accounts);
 }
 
+export async function fetchStaffAccounts(): Promise<StaffAccount[]> {
+	if (typeof window === 'undefined') return [];
+
+	try {
+		const response = await fetch('/api/auth/staff', { cache: 'no-store', credentials: 'include' });
+		if (!response.ok) return [];
+
+		const data = (await response.json()) as {
+			staff?: Array<{ id: string; name: string; email: string; createdAt?: string; role?: string }>;
+		};
+
+		return Array.isArray(data.staff)
+			? data.staff
+					.map((account) => ({
+						id: account.id,
+						name: account.name,
+						username: account.email,
+						password: '',
+						createdAt: account.createdAt ?? new Date().toISOString(),
+						createdBy: account.role ?? 'admin',
+					}))
+					.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+			: [];
+	} catch {
+		return [];
+	}
+}
+
+export async function createStaffAccountOnServer(input: { name: string; username: string; password: string }) {
+	if (typeof window === 'undefined') return null;
+
+	const response = await fetch('/api/auth/staff', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		cache: 'no-store',
+		body: JSON.stringify({ name: input.name, email: input.username, password: input.password }),
+	});
+
+	if (!response.ok) return null;
+
+	const data = (await response.json()) as {
+		staff?: { id: string; name: string; email: string; role?: string };
+		message?: string;
+	};
+
+	if (!data?.staff) return null;
+
+	return {
+		id: data.staff.id,
+		name: data.staff.name,
+		username: data.staff.email,
+		password: '',
+		createdAt: new Date().toISOString(),
+		createdBy: data.staff.role ?? 'admin',
+	} satisfies StaffAccount;
+}
+
+export async function updateStaffPasswordOnServer(staffId: string, password: string): Promise<boolean> {
+	if (typeof window === 'undefined') return false;
+
+	const response = await fetch('/api/auth/staff', {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		cache: 'no-store',
+		body: JSON.stringify({ action: 'update-password', staffId, password }),
+	});
+
+	return response.ok;
+}
+
+export async function deleteStaffAccountOnServer(staffId: string): Promise<boolean> {
+	if (typeof window === 'undefined') return false;
+
+	const response = await fetch(`/api/auth/staff?staffId=${encodeURIComponent(staffId)}`, {
+		method: 'DELETE',
+		credentials: 'include',
+		cache: 'no-store',
+	});
+
+	return response.ok;
+}
+
+export async function fetchStaffAccessMetaById(staffId: string): Promise<StaffAccessMeta | null> {
+	if (typeof window === 'undefined') return null;
+
+	try {
+		const response = await fetch(`/api/staff-meta?id=${encodeURIComponent(staffId)}`, { cache: 'no-store', credentials: 'include' });
+		if (!response.ok) return null;
+		const data = (await response.json()) as { staffAccessMeta?: unknown };
+		return normalizeStaffAccessMeta(data.staffAccessMeta ?? null);
+	} catch {
+		return null;
+	}
+}
+
 export function readStaffAccessMetaMap(): StaffAccessMetaMap {
 	if (typeof window === 'undefined') return {};
 
@@ -375,6 +472,8 @@ export function saveStaffSession(account: Pick<StaffAccount, 'id' | 'name' | 'us
 		metaMap[key] = createDefaultStaffAccessMeta();
 		writeStaffAccessMetaMap(metaMap);
 	}
+
+	void syncLocalStaffMetaWithServer();
 }
 
 export function readStaffSession(): StaffSession | null {

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authenticateStaff, saveAdminSession, saveStaffSession } from '../../lib/staff-auth';
+import { saveAdminSession, saveStaffSession } from '../../lib/staff-auth';
 import { getHostingSupportMessage } from '../../lib/hosting-support';
 import { BUSINESS_PROFILE } from '../../lib/business-profile';
 import { useAppFeedback } from '../../components/app-feedback';
@@ -70,15 +70,6 @@ function RightPanel() {
     try {
       await withLoading(
         async () => {
-          if (role === 'staff') {
-            const localStaff = authenticateStaff(email, password);
-            if (localStaff) {
-              saveStaffSession({ id: localStaff.id, name: localStaff.name, username: localStaff.username });
-              router.push('/login/staff/dashboard');
-              return;
-            }
-          }
-
           const resp = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -127,15 +118,6 @@ function RightPanel() {
 
           const data = await resp.json();
           if (!resp.ok || !data?.success) {
-            if (role === 'staff') {
-              const localStaff = authenticateStaff(email, password);
-              if (localStaff) {
-                saveStaffSession({ id: localStaff.id, name: localStaff.name, username: localStaff.username });
-                router.push('/login/staff/dashboard');
-                return;
-              }
-            }
-
             setError(data?.error || 'Invalid credentials');
             throw new Error(data?.error || 'Invalid credentials');
           }

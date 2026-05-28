@@ -8,17 +8,16 @@ import { StaffConfirmModal } from '../../../../components/staff-confirm-modal';
 import { StaffAccountManager } from '../../../../components/staff-account-manager';
 import {
 	STAFF_AUTH_EVENT,
-	STAFF_ACCOUNTS_STORAGE_KEY,
-	STAFF_SESSION_STORAGE_KEY,
 	STAFF_MODULE_KEYS,
-	hasAdminSession,
-	readStaffSession,
-	readStaffAccounts,
-	saveStaffAccounts,
-	readStaffAccessMetaMap,
-	writeStaffAccessMetaMap,
+	clearStaffSession,
 	createDefaultStaffAccessMeta,
-	getStaffAccessMetaKey,
+	deleteStaffAccountOnServer,
+	fetchStaffAccessMetaById,
+	fetchStaffAccounts,
+	readStaffSession,
+	updateStaffPasswordOnServer,
+	hasAdminSession,
+	writeStaffAccessMetaMap,
 	type StaffAccount,
 	type StaffAccessMeta,
 	type StaffAccessMetaMap,
@@ -69,7 +68,7 @@ export default function AdminStaffPage() {
 	const router = useRouter();
 	const [adminReady, setAdminReady] = useState(false);
 	const [accounts, setAccounts] = useState<StaffAccount[]>([]);
-	const [metaMap, setMetaMap] = useState<StaffAccessMetaMap>({});
+	const [metaMap, setMetaMap] = useState<Record<string, StaffAccessMeta>>({});
 	const [searchText, setSearchText] = useState('');
 	const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
 	const feedbackReadyRef = useRef(false);
@@ -85,41 +84,26 @@ export default function AdminStaffPage() {
 		};
 
 		updateAccess();
-		const refresh = () => {
-			const staffAccounts = readStaffAccounts();
-			const currentMeta = readMetaMap();
+		const refresh = async () => {
+			const staffAccounts = await fetchStaffAccounts();
+			const nextMeta: Record<string, StaffAccessMeta> = {};
 
-			const normalizedMeta: StaffAccessMetaMap = { ...currentMeta };
-			
-			// Remove entries for accounts that no longer exist
-			Object.keys(normalizedMeta).forEach((key) => {
-				const hasAccount = staffAccounts.some((account) => getStaffAccessMetaKey(account) === key || account.id === key);
-				if (!hasAccount) {
-					delete normalizedMeta[key];
-				}
-			});
-
-			// Ensure all accounts have metadata
-			staffAccounts.forEach((account) => {
-				const accountKey = getStaffAccessMetaKey(account);
-				if (!normalizedMeta[accountKey]) {
-					normalizedMeta[accountKey] = currentMeta[accountKey] ?? currentMeta[account.id] ?? createDefaultMeta();
-				}
-			});
-
-			const changed = JSON.stringify(normalizedMeta) !== JSON.stringify(currentMeta);
-			if (changed) {
-				saveMetaMap(normalizedMeta, !feedbackReadyRef.current);
-			}
+			await Promise.all(
+				staffAccounts.map(async (account) => {
+					const remoteMeta = await fetchStaffAccessMetaById(account.id);
+					const meta = remoteMeta ?? createDefaultMeta();
+					nextMeta[account.id] = meta;
+					nextMeta[account.username.trim().toLowerCase()] = meta;
+				}),
+			);
 
 			setAccounts(staffAccounts);
-			setMetaMap(normalizedMeta);
-
+			setMetaMap(nextMeta);
 		};
 
-		refresh();
+		void refresh();
 
-		const onChange: EventListener = () => refresh();
+		const onChange: EventListener = () => { void refresh(); };
 		window.addEventListener('storage', onChange);
 		window.addEventListener(STAFF_AUTH_EVENT, onChange);
 		window.addEventListener('staff-auth-updated', updateAccess as EventListener);
@@ -168,7 +152,7 @@ export default function AdminStaffPage() {
 		if (typeof window === 'undefined') return;
 		const session = readStaffSession();
 		if (session?.id === accountId) {
-			window.localStorage.removeItem(STAFF_SESSION_STORAGE_KEY);
+			clearStaffSession();
 			window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
 		}
 	};
@@ -181,10 +165,7 @@ export default function AdminStaffPage() {
 		openConfirm('Delete user', 'Delete this staff user? This action cannot be undone.', () => {
 			if (typeof window === 'undefined') return;
 			try {
-				// Hard-delete: remove the account from storage entirely
-				const allAccounts = readStaffAccounts();
-				const modified = (allAccounts || []).filter((acct) => acct.id !== accountId);
-				saveStaffAccounts(modified as any);
+				void deleteStaffAccountOnServer(accountId);
 
 				setMetaMap((current) => {
 					const nextMeta = { ...current };
@@ -223,8 +204,7 @@ export default function AdminStaffPage() {
 		}
 
 		try {
-			const next = readStaffAccounts().map((acct) => (acct.id === passwordTargetId ? { ...acct, password: newPasswordInput } : acct));
-			saveStaffAccounts(next);
+			void updateStaffPasswordOnServer(passwordTargetId, newPasswordInput);
 			// force logout the user if currently logged in
 			forceLogout(passwordTargetId);
 			window.dispatchEvent(new Event(STAFF_AUTH_EVENT));

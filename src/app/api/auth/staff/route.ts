@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
         name: staff.name,
         email: staff.email,
         role: staff.role,
+        createdAt: staff.createdAt.toISOString(),
       },
     });
   } catch (error) {
@@ -152,54 +153,76 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
+
+    if (body?.action === 'update-password') {
+      const staffId = typeof body.staffId === 'string' ? body.staffId.trim() : '';
+      const password = typeof body.password === 'string' ? body.password.trim() : '';
+
+      if (!staffId || password.length < 4) {
+        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+      }
+
+      const hashedPassword = await hashPassword(password);
+      await prisma.user.update({ where: { id: staffId }, data: { password: hashedPassword } });
+      return NextResponse.json({ success: true });
+    }
+
+    if (body?.action === 'delete-account') {
+      const staffId = typeof body.staffId === 'string' ? body.staffId.trim() : '';
+      if (!staffId) {
+        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+      }
+
+      await prisma.user.delete({ where: { id: staffId } });
+      return NextResponse.json({ success: true });
+    }
+
     const accessMetaMap = body?.accessMetaMap;
     if (!accessMetaMap || typeof accessMetaMap !== 'object') {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    // accessMetaMap keys can be user id, email, or username (local staff accounts)
     const entries = Object.entries(accessMetaMap);
-    const fs = await import('fs');
-    const path = await import('path');
-    const dataDir = path.join(process.cwd(), 'data');
-    const mapFile = path.join(dataDir, 'staff-access-map.json');
-
-    // ensure data dir exists
-    try {
-      if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    } catch (e) {
-      // ignore
-    }
-
-    // load existing map
-    let fallbackMap: Record<string, unknown> = {};
-    try {
-      if (fs.existsSync(mapFile)) {
-        const raw = fs.readFileSync(mapFile, 'utf-8');
-        fallbackMap = JSON.parse(raw || '{}');
-      }
-    } catch (e) {
-      fallbackMap = {};
-    }
-
-    for (const [key, meta] of entries) {
-      try {
-        // Persist into fallback server-side map keyed by the provided key (e.g., username)
-        fallbackMap[String(key).trim().toLowerCase()] = meta ?? {};
-      } catch (err) {
-        console.error('Error updating staff access for key', key, err);
-      }
-    }
-
-    try {
-      fs.writeFileSync(mapFile, JSON.stringify(fallbackMap, null, 2), 'utf-8');
-    } catch (e) {
-      console.error('Failed writing fallback staff access map', e);
-    }
+    await Promise.all(
+      entries.map(([key, meta]) =>
+        prisma.user
+          .findFirst({ where: { OR: [{ id: key }, { email: key }, { name: key }] } })
+          .then((user) => (user ? prisma.user.update({ where: { id: user.id }, data: { staffAccessMetaJson: JSON.stringify(meta ?? {}) } }) : null)),
+      ),
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Patch staff access error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+    const authToken = cookieStore.get('auth-token')?.value;
+
+    if (!authToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+      await verifyAdminSession(authToken);
+    } catch {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const url = new URL(req.url);
+    const staffId = url.searchParams.get('staffId')?.trim() ?? '';
+    if (!staffId) {
+      return NextResponse.json({ error: 'staffId is required' }, { status: 400 });
+    }
+
+    await prisma.user.delete({ where: { id: staffId } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete staff error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

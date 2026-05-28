@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
 	STAFF_AUTH_EVENT,
-	STAFF_ACCOUNTS_STORAGE_KEY,
-	STAFF_SESSION_STORAGE_KEY,
-	createStaffAccount,
+	createStaffAccountOnServer,
 	hasAdminSession,
 } from '../lib/staff-auth';
 
@@ -45,7 +43,7 @@ export function StaffAccountManager() {
 		};
 	}, []);
 
-	const handleCreate = (event: React.FormEvent<HTMLFormElement>) => {
+	const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
 		if (!adminReady) {
@@ -54,23 +52,23 @@ export function StaffAccountManager() {
 		}
 
 		try {
-			const result = createStaffAccount({
+			const result = await createStaffAccountOnServer({
 				name,
 				username,
 				password,
-				createdBy: 'admin',
 			});
 
-			if (!result.ok) {
-				setMessage('message' in result ? (result as any).message : 'Failed to create staff account.');
+			if (!result) {
+				setMessage('Failed to create staff account.');
 				return;
 			}
 
-			setMessage(`Staff account created for ${result.account.name}.`);
+			setMessage(`Staff account created for ${result.name}.`);
 			setName('');
 			setUsername('');
 			setPassword('');
 			refreshAccounts();
+			window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
 		} catch (error) {
 			setMessage('An error occurred. Please try again.');
 			console.error(error);
