@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminShell } from '../../../../components/admin-shell';
 import { LEDGER_STORAGE_EVENT } from '../../../../lib/ledger-store';
@@ -234,6 +234,14 @@ export default function AdminSettingsPage() {
 
     setSettings(cleaned);
     saveSettings(cleaned);
+    // Persist settings to server so changes are global across devices
+    void fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      cache: 'no-store',
+      body: JSON.stringify({ settings: cleaned }),
+    }).catch(() => null);
     setNotice('Settings saved.');
   };
 
@@ -244,138 +252,7 @@ export default function AdminSettingsPage() {
     setNotice('Settings reset to defaults.');
     setErrorText(null);
   };
-
-  const exportBackup = () => {
-    void withLoading(
-      async () => {
-        if (typeof window === 'undefined') return;
-
-        const keys = new Set<string>();
-        for (let index = 0; index < window.localStorage.length; index += 1) {
-          const key = window.localStorage.key(index);
-          if (key) keys.add(key);
-        }
-
-        backupKeyOrder.forEach((key) => keys.add(key));
-
-        const items = Array.from(keys)
-          .sort((left, right) => {
-            const leftIndex = backupKeyOrder.indexOf(left as (typeof backupKeyOrder)[number]);
-            const rightIndex = backupKeyOrder.indexOf(right as (typeof backupKeyOrder)[number]);
-
-            if (leftIndex === -1 && rightIndex === -1) return left.localeCompare(right);
-            if (leftIndex === -1) return 1;
-            if (rightIndex === -1) return -1;
-            return leftIndex - rightIndex;
-          })
-          .map((key) => {
-            const rawValue = window.localStorage.getItem(key) ?? '';
-
-            return {
-              key,
-              label: describeBackupKey(key),
-              rawValue,
-              parsedValue: tryParseStoredValue(rawValue),
-            } satisfies BackupItem;
-          });
-
-        const payload: BackupFile = {
-          version: 2,
-          exportedAt: new Date().toISOString(),
-          generatedBy: 'FS Mobile Accessories Settings Backup',
-          notes:
-            'This file contains readable app data for products, sales, purchases, payments, staff, settings, and layout preferences. It can be restored even after a site crash.',
-          items,
-          rawStorage: Object.fromEntries(items.map((item) => [item.key, item.rawValue])),
-        };
-
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `fs-communication-backup-${payload.exportedAt.slice(0, 10)}.json`;
-        anchor.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 0);
-        setNotice('Full backup downloaded.');
-        setErrorText(null);
-      },
-      { loadingLabel: 'Preparing backup...', successMessage: 'Backup downloaded' },
-    );
-  };
-
-  const importBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || typeof window === 'undefined') return;
-
-    try {
-      await withLoading(
-        async () => {
-          const text = await file.text();
-          const parsed = JSON.parse(text) as Partial<BackupFile> & {
-            data?: Record<string, string>;
-          };
-
-          const nextStorage = new Map<string, string>();
-
-          if (parsed.rawStorage && typeof parsed.rawStorage === 'object') {
-            for (const [key, value] of Object.entries(parsed.rawStorage)) {
-              if (typeof value === 'string') {
-                nextStorage.set(key, value);
-              }
-            }
-          } else if (Array.isArray(parsed.items)) {
-            for (const item of parsed.items) {
-              if (item && typeof item.key === 'string') {
-                nextStorage.set(item.key, typeof item.rawValue === 'string' ? item.rawValue : serializeBackupValue(item.parsedValue));
-              }
-            }
-          } else if (parsed.data && typeof parsed.data === 'object') {
-            for (const [key, value] of Object.entries(parsed.data)) {
-              if (typeof value === 'string') {
-                nextStorage.set(key, value);
-              }
-            }
-          } else {
-            throw new Error('Invalid backup file.');
-          }
-
-          nextStorage.forEach((value, key) => {
-            window.localStorage.setItem(key, value);
-          });
-
-          setSettings(readSettings());
-          window.dispatchEvent(new Event('storage'));
-          window.dispatchEvent(new Event(LEDGER_STORAGE_EVENT));
-          window.dispatchEvent(new Event(PRODUCTS_EVENT));
-          window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
-          window.dispatchEvent(new Event('admin-settings-updated'));
-          void fetch('/api/revalidate-site', { method: 'POST', cache: 'no-store', credentials: 'include' }).catch(() => null);
-
-          // Also push imported business/catalog/ledger keys to server snapshots so data becomes global.
-          try {
-            const payload = { rawStorage: Object.fromEntries(nextStorage) } as Record<string, unknown>;
-            void fetch('/api/import-backup', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              cache: 'no-store',
-              body: JSON.stringify(payload),
-            }).catch(() => null);
-          } catch (err) {
-            // ignore client-side errors
-          }
-
-          setNotice('Backup imported successfully.');
-          setErrorText(null);
-        },
-        { loadingLabel: 'Importing backup...', successMessage: 'Backup imported' },
-      );
-    } catch {
-      setErrorText('Import failed. Use a valid backup file from this app.');
-      setNotice(null);
-    }
-  };
+  
 
   return (
     <AdminShell active="settings" title="Settings">
@@ -486,37 +363,7 @@ export default function AdminSettingsPage() {
           </div>
         </section>
 
-        <section className={cardClass}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Data Backup</p>
-              <p className="mt-1 text-xs text-slate-500">Export or restore all app data, including products, sales, purchases, payments, staff, settings, and layout preferences.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={exportBackup}
-                className="rounded-md border border-blue-600 bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-700"
-              >
-                Export full backup
-              </button>
-              <button
-                type="button"
-                onClick={() => importInputRef.current?.click()}
-                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
-              >
-                Import backup
-              </button>
-              <input
-                ref={importInputRef}
-                type="file"
-                accept="application/json"
-                onChange={importBackup}
-                className="hidden"
-              />
-            </div>
-          </div>
-        </section>
+        {/* Backup/import removed — site is online-only and server-authoritative */}
       </div>
     </AdminShell>
   );
