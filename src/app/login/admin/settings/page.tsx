@@ -352,6 +352,20 @@ export default function AdminSettingsPage() {
           window.dispatchEvent(new Event('admin-settings-updated'));
           void fetch('/api/revalidate-site', { method: 'POST', cache: 'no-store', credentials: 'include' }).catch(() => null);
 
+          // Also push imported business/catalog/ledger keys to server snapshots so data becomes global.
+          try {
+            const payload = { rawStorage: Object.fromEntries(nextStorage) } as Record<string, unknown>;
+            void fetch('/api/import-backup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              cache: 'no-store',
+              body: JSON.stringify(payload),
+            }).catch(() => null);
+          } catch (err) {
+            // ignore client-side errors
+          }
+
           setNotice('Backup imported successfully.');
           setErrorText(null);
         },
