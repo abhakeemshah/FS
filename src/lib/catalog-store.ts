@@ -135,7 +135,7 @@ export function parseStoredValue<T>(rawValue: string | null | undefined): T | nu
 }
 
 function syncCatalogSnapshot(storageKey: string, value: string | null) {
-  if (!CATALOG_SYNC_KEYS.has(storageKey)) return Promise.resolve();
+  if (!CATALOG_SYNC_KEYS.has(storageKey)) return Promise.resolve({ ...catalogSnapshotCache });
 
   return fetch('/api/catalog-state', {
     method: 'POST',

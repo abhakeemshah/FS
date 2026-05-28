@@ -174,9 +174,19 @@ function buildLiveMetricValues(
   return liveValues;
 }
 
-export function DashboardMetricsEditor({ initialOverrides = {} }: { initialOverrides?: Partial<MetricValues> }) {
-  const [salesBills, setSalesBills] = useState<SalesBillLike[]>([]);
-  const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecordLike[]>([]);
+type DashboardMetricsEditorProps = {
+  initialOverrides?: Partial<MetricValues>;
+  initialSalesBills?: SalesBillLike[];
+  initialPurchaseRecords?: PurchaseRecordLike[];
+};
+
+export function DashboardMetricsEditor({
+  initialOverrides = {},
+  initialSalesBills = [],
+  initialPurchaseRecords = [],
+}: DashboardMetricsEditorProps) {
+  const [salesBills, setSalesBills] = useState<SalesBillLike[]>(initialSalesBills);
+  const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecordLike[]>(initialPurchaseRecords);
   const [values, setValues] = useState<MetricValues>(createEmptyValues());
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
@@ -204,11 +214,6 @@ export function DashboardMetricsEditor({ initialOverrides = {} }: { initialOverr
       saveMetricOverrides(initialOverrides);
     }
   }, [initialOverrides]);
-
-  useEffect(() => {
-    setSalesBills(initialSalesBills);
-    setPurchaseRecords(initialPurchaseRecords);
-  }, [initialSalesBills, initialPurchaseRecords]);
 
   useEffect(() => {
     refreshValues();
