@@ -1,0 +1,32 @@
+To: Hostinger Support
+Subject: Please disable Bot/WAF protection or whitelist API routes for our site HOST
+
+Hello Hostinger support team,
+
+We are experiencing intermittent failures on our site (HOST). Symptoms include HTTP 503 responses and API POST requests returning HTML challenge pages instead of JSON. This breaks user sign-in and other client-side API calls.
+
+Please disable or relax Bot Protection / WAF for our domain HOST, or whitelist these specific paths so they are not challenged:
+
+  - /api/auth/*
+  - /api/ledger-state
+  - /api/catalog-state
+  - /api/status
+
+Recommended approach:
+- Temporarily disable WAF for HOST and reproduce the issue; if that resolves it, re-enable with the above routes whitelisted.
+- Alternatively, allow the origin https://HOST and requests from standard browser user-agents to avoid bot challenge pages for legitimate browser traffic.
+
+If Hostinger needs a health-check token, we can set an environment variable `HEALTH_CHECK_TOKEN` and provide it to you; the site will accept it via the `X-Health-Check` header on `/api/status`.
+
+Example curl tests (run from your side and reply with the output):
+
+  curl -i https://HOST/api/status
+
+  curl -i -X POST https://HOST/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"test@example.com","password":"x","role":"admin"}'
+
+If you need more logs or a specific User-Agent to whitelist, let us know and we'll provide them.
+
+Thanks,
+Site admin
