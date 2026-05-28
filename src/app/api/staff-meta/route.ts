@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/db';
 import { normalizeStaffAccessMeta, createDefaultStaffAccessMeta } from '../../../lib/staff-auth';
+import { findStaffAccountFileRecordById } from '../../../lib/staff-store-server';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,16 +22,32 @@ export async function GET(req: NextRequest) {
       user = await prisma.user.findFirst({ where: { email: username } }).catch(() => null);
     }
 
+    if (!user && userId) {
+      const fileAccount = findStaffAccountFileRecordById(userId);
+      if (fileAccount) {
+        user = {
+          id: fileAccount.id,
+          email: fileAccount.email,
+          staffAccessMetaJson: fileAccount.staffAccessMetaJson ?? null,
+        } as {
+          id: string;
+          email: string;
+          staffAccessMetaJson?: string | null;
+        };
+      }
+    }
+
     const dataDir = path.join(process.cwd(), 'data');
     const mapFile = path.join(dataDir, 'staff-access-map.json');
+    const resolvedUsername = username ?? (user ? user.email.trim().toLowerCase() : null);
 
     if (!user) {
       // try fallback server-side map by username
       try {
-        if (username && fs.existsSync(mapFile)) {
+        if (resolvedUsername && fs.existsSync(mapFile)) {
           const raw = fs.readFileSync(mapFile, 'utf-8');
           const parsed = JSON.parse(raw || '{}') as Record<string, unknown>;
-          const match = parsed[username];
+          const match = parsed[resolvedUsername];
           if (match) {
             const staffAccessMeta = normalizeStaffAccessMeta(match ?? null);
             return NextResponse.json({ success: true, staffAccessMeta });
@@ -44,7 +61,19 @@ export async function GET(req: NextRequest) {
     }
 
     const staffAccessMeta = normalizeStaffAccessMeta(
-      user.staffAccessMetaJson ? JSON.parse(user.staffAccessMetaJson) : createDefaultStaffAccessMeta(),
+      user.staffAccessMetaJson
+        ? JSON.parse(user.staffAccessMetaJson)
+        : (() => {
+            if (!resolvedUsername || !fs.existsSync(mapFile)) return createDefaultStaffAccessMeta();
+
+            try {
+              const raw = fs.readFileSync(mapFile, 'utf-8');
+              const parsed = JSON.parse(raw || '{}') as Record<string, unknown>;
+              return parsed[resolvedUsername] ?? createDefaultStaffAccessMeta();
+            } catch {
+              return createDefaultStaffAccessMeta();
+            }
+          })(),
     );
 
     return NextResponse.json({ success: true, staffAccessMeta });

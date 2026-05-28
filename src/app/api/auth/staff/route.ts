@@ -3,6 +3,14 @@ import prisma from '../../../../lib/db';
 import { hashPassword } from '../../../../lib/auth';
 import { cookies } from 'next/headers';
 import { jwtVerify } from '../../../../lib/jwt';
+import {
+  deleteStaffAccountFileRecord,
+  findStaffAccountFileRecordByEmail,
+  findStaffAccountFileRecordById,
+  mergeStaffAccountFileRecords,
+  readStaffAccountFileRecords,
+  upsertStaffAccountFileRecord,
+} from '../../../../lib/staff-store-server';
 
 async function verifyAdminSession(authToken: string) {
   const payload = await jwtVerify(authToken);
@@ -47,12 +55,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if email already exists
-    const existing = await prisma.user.findFirst({
-      where: { email: email.toLowerCase() },
-    });
+    const normalizedEmail = email.toLowerCase();
 
-    if (existing) {
+    // Check if email already exists in Prisma or the server-side file store.
+    const existing = await prisma.user.findFirst({
+      where: { email: normalizedEmail },
+    }).catch(() => null);
+    const existingFile = findStaffAccountFileRecordByEmail(normalizedEmail);
+
+    if (existing || existingFile) {
       return NextResponse.json(
         { error: 'Email already exists' },
         { status: 400 }
@@ -62,25 +73,41 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create staff account
-    const staff = await prisma.user.create({
-      data: {
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        name,
-        role: 'staff',
-      },
-    });
+    const staffRecord = {
+		id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+		name,
+		email: normalizedEmail,
+		password: hashedPassword,
+		role: 'staff' as const,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+	};
+
+    try {
+      await prisma.user.create({
+        data: {
+          id: staffRecord.id,
+          email: normalizedEmail,
+          password: hashedPassword,
+          name,
+          role: 'staff',
+        },
+      });
+    } catch (error) {
+      console.error('Prisma create staff fallback to file store:', error);
+    }
+
+    const fileRecord = upsertStaffAccountFileRecord(staffRecord);
 
     return NextResponse.json({
       success: true,
       message: 'Staff account created',
       staff: {
-        id: staff.id,
-        name: staff.name,
-        email: staff.email,
-        role: staff.role,
-        createdAt: staff.createdAt.toISOString(),
+        id: fileRecord.id,
+        name: fileRecord.name,
+        email: fileRecord.email,
+        role: fileRecord.role,
+        createdAt: fileRecord.createdAt,
       },
     });
   } catch (error) {
@@ -111,8 +138,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get all staff accounts
-    const staff = await prisma.user.findMany({
+    // Get all staff accounts from Prisma and the server-side file store, then merge them.
+    const prismaStaff = await prisma.user.findMany({
       where: { role: 'staff' },
       select: {
         id: true,
@@ -120,8 +147,34 @@ export async function GET(req: NextRequest) {
         email: true,
         role: true,
         createdAt: true,
+        password: true,
       },
-    });
+    }).catch(() => []);
+
+    const fileStaff = readStaffAccountFileRecords().filter((record) => record.role === 'staff');
+
+    const merged = mergeStaffAccountFileRecords([
+      ...fileStaff,
+      ...prismaStaff.map((staff) => ({
+        id: staff.id,
+        name: staff.name ?? '',
+        email: staff.email,
+        password: staff.password,
+        role: 'staff' as const,
+        createdAt: staff.createdAt.toISOString(),
+        updatedAt: staff.createdAt.toISOString(),
+      })),
+    ]);
+
+    const staff = merged
+      .filter((record) => record.role === 'staff')
+      .map((record) => ({
+        id: record.id,
+        name: record.name,
+        email: record.email,
+        role: record.role,
+        createdAt: new Date(record.createdAt),
+      }));
 
     return NextResponse.json({
       success: true,
@@ -163,7 +216,16 @@ export async function PATCH(req: NextRequest) {
       }
 
       const hashedPassword = await hashPassword(password);
-      await prisma.user.update({ where: { id: staffId }, data: { password: hashedPassword } });
+      try {
+        await prisma.user.update({ where: { id: staffId }, data: { password: hashedPassword } });
+      } catch (error) {
+        console.error('Prisma update password fallback to file store:', error);
+      }
+
+      const fileRecord = findStaffAccountFileRecordById(staffId);
+      if (fileRecord) {
+        upsertStaffAccountFileRecord({ ...fileRecord, password: hashedPassword });
+      }
       return NextResponse.json({ success: true });
     }
 
@@ -173,7 +235,13 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
       }
 
-      await prisma.user.delete({ where: { id: staffId } });
+      try {
+        await prisma.user.delete({ where: { id: staffId } });
+      } catch (error) {
+        console.error('Prisma delete fallback to file store:', error);
+      }
+
+      deleteStaffAccountFileRecord(staffId);
       return NextResponse.json({ success: true });
     }
 
@@ -184,11 +252,21 @@ export async function PATCH(req: NextRequest) {
 
     const entries = Object.entries(accessMetaMap);
     await Promise.all(
-      entries.map(([key, meta]) =>
-        prisma.user
+      entries.map(async ([key, meta]) => {
+        const user = await prisma.user
           .findFirst({ where: { OR: [{ id: key }, { email: key }, { name: key }] } })
-          .then((user) => (user ? prisma.user.update({ where: { id: user.id }, data: { staffAccessMetaJson: JSON.stringify(meta ?? {}) } }) : null)),
-      ),
+          .catch(() => null);
+
+        if (user) {
+          await prisma.user.update({ where: { id: user.id }, data: { staffAccessMetaJson: JSON.stringify(meta ?? {}) } }).catch(() => null);
+          return;
+        }
+
+        const fileRecord = findStaffAccountFileRecordById(key) ?? findStaffAccountFileRecordByEmail(key);
+        if (fileRecord) {
+          upsertStaffAccountFileRecord({ ...fileRecord, staffAccessMetaJson: JSON.stringify(meta ?? {}) });
+        }
+      }),
     );
 
     return NextResponse.json({ success: true });
@@ -219,7 +297,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'staffId is required' }, { status: 400 });
     }
 
-    await prisma.user.delete({ where: { id: staffId } });
+    try {
+      await prisma.user.delete({ where: { id: staffId } });
+    } catch (error) {
+      console.error('Prisma delete fallback to file store:', error);
+    }
+
+    deleteStaffAccountFileRecord(staffId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete staff error:', error);
