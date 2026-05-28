@@ -87,9 +87,17 @@ export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>)
   try {
     if (process.env.DATABASE_URL) {
       const existingRows = await prisma.catalogSnapshot.findMany();
-      const existingKeys = new Set(existingRows.map((row) => row.key));
-      const nextKeys = new Set(Object.keys(sanitizedSnapshot));
+      const nextKeysArr = Object.keys(sanitizedSnapshot);
 
+      // Defensive: if sanitized snapshot is empty, avoid deleting existing rows.
+      // This prevents accidental full-table wipes when sanitization unexpectedly
+      // removes all keys (e.g., due to parsing errors or transient state).
+      if (nextKeysArr.length === 0) {
+        // Still attempt to upsert nothing, but preserve existing data.
+        return;
+      }
+
+      const nextKeys = new Set(nextKeysArr);
       const keysToDelete = existingRows.filter((row) => !nextKeys.has(row.key)).map((row) => row.key);
       if (keysToDelete.length) {
         await prisma.catalogSnapshot.deleteMany({ where: { key: { in: keysToDelete } } });

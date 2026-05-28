@@ -40,7 +40,14 @@ export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
   try {
     if (process.env.DATABASE_URL) {
         const existingRows = await prisma.ledgerSnapshot.findMany();
-        const nextKeys = new Set(Object.keys(nextSnapshot));
+        const nextKeysArr = Object.keys(nextSnapshot);
+
+        // Defensive: if next snapshot is empty, avoid deleting existing rows.
+        if (nextKeysArr.length === 0) {
+          return;
+        }
+
+        const nextKeys = new Set(nextKeysArr);
         const keysToDelete = existingRows.filter((row) => !nextKeys.has(row.key)).map((row) => row.key);
 
         if (keysToDelete.length) {
