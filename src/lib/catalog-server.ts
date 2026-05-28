@@ -86,10 +86,29 @@ export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>)
 
   try {
     if (process.env.DATABASE_URL) {
-      // upsert all keys: simple approach - delete all and re-create to keep parity with file snapshot
-      await prisma.catalogSnapshot.deleteMany();
-      const creates = Object.keys(sanitizedSnapshot).map((k) => ({ key: k, value: sanitizedSnapshot[k] }));
-      if (creates.length) await prisma.catalogSnapshot.createMany({ data: creates });
+      const existingRows = await prisma.catalogSnapshot.findMany();
+      const existingKeys = new Set(existingRows.map((row) => row.key));
+      const nextKeys = new Set(Object.keys(sanitizedSnapshot));
+
+      const keysToDelete = existingRows.filter((row) => !nextKeys.has(row.key)).map((row) => row.key);
+      if (keysToDelete.length) {
+        await prisma.catalogSnapshot.deleteMany({ where: { key: { in: keysToDelete } } });
+      }
+
+      await Promise.all(
+        Object.entries(sanitizedSnapshot).map(([key, value]) =>
+          prisma.catalogSnapshot.upsert({
+            where: { key },
+            create: { key, value },
+            update: { value },
+          }),
+        ),
+      );
+
+      const keysToKeep = existingRows.filter((row) => nextKeys.has(row.key)).length;
+      if (existingKeys.size !== nextKeys.size || keysToDelete.length || keysToKeep !== nextKeys.size) {
+        // The snapshot was reconciled key-by-key, so unrelated rows remain intact.
+      }
       return;
     }
   } catch (err) {

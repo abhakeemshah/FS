@@ -228,7 +228,13 @@ export function readStaffAccessMetaMap(): StaffAccessMetaMap {
 
 export function writeStaffAccessMetaMap(value: StaffAccessMetaMap, options?: AppWriteOptions) {
 	if (typeof window === 'undefined') return;
-	window.localStorage.setItem(STAFF_ACCESS_META_KEY, encodeStoredJson(value));
+	const serialized = encodeStoredJson(value);
+	writeClientCookie(STAFF_ACCESS_META_KEY, serialized);
+	try {
+		window.localStorage.setItem(STAFF_ACCESS_META_KEY, serialized);
+	} catch {
+		// localStorage can be disabled; cookie persistence is the primary path.
+	}
 	dispatchAuthChange();
 	if (!options?.silent) emitAppActionSuccess(STAFF_ACCESS_META_KEY);
 

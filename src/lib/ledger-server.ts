@@ -39,11 +39,23 @@ export async function readLedgerSnapshot(): Promise<LedgerSnapshot> {
 export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
   try {
     if (process.env.DATABASE_URL) {
-      await prisma.ledgerSnapshot.deleteMany();
-      const data = Object.keys(nextSnapshot).map((key) => ({ key, value: nextSnapshot[key] }));
-      if (data.length) {
-        await prisma.ledgerSnapshot.createMany({ data });
-      }
+        const existingRows = await prisma.ledgerSnapshot.findMany();
+        const nextKeys = new Set(Object.keys(nextSnapshot));
+        const keysToDelete = existingRows.filter((row) => !nextKeys.has(row.key)).map((row) => row.key);
+
+        if (keysToDelete.length) {
+          await prisma.ledgerSnapshot.deleteMany({ where: { key: { in: keysToDelete } } });
+        }
+
+        await Promise.all(
+          Object.entries(nextSnapshot).map(([key, value]) =>
+            prisma.ledgerSnapshot.upsert({
+              where: { key },
+              create: { key, value },
+              update: { value },
+            }),
+          ),
+        );
       return;
     }
   } catch (error) {
