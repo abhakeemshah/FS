@@ -1,0 +1,22 @@
+# Secure DB backup environment file
+# Created for Hostinger automated backups
+# Upload to: /home/u121265836/.db_backup_env
+# Permissions: chmod 600 (read/write for owner only)
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+
+# Database 1: u121265836_admin
+ADMIN_USER=u121265836_admin_user
+ADMIN_PASS='PASTE_NEW_PASSWORD_FOR_ADMIN_HERE'
+ADMIN_DB=u121265836_admin
+
+# Database 2: u121265836_adminnew
+ADMINNEW_USER=u121265836_admin_new
+ADMINNEW_PASS='PASTE_NEW_PASSWORD_FOR_ADMINNEW_HERE'
+ADMINNEW_DB=u121265836_adminnew
+
+# Database 3: u121265836_spaadmin
+SPA_USER=u121265836_spaadmin
+SPA_PASS='PASTE_NEW_PASSWORD_FOR_SPAADMIN_HERE'
+SPA_DB=u121265836_spaadmin

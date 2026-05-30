@@ -4,12 +4,17 @@ import 'server-only';
 import fs from 'fs';
 import path from 'path';
 import prisma from './db';
+import ensureDbReady from './db-init';
 
 export type LedgerSnapshot = Record<string, string>;
 
 const LEDGER_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'ledger-snapshot.json');
 
 export async function readLedgerSnapshot(): Promise<LedgerSnapshot> {
+  // ensure DB tables exist (best-effort)
+  try {
+    await ensureDbReady();
+  } catch {}
   try {
     if (process.env.DATABASE_URL) {
       const rows = await prisma.ledgerSnapshot.findMany();
@@ -39,6 +44,8 @@ export async function readLedgerSnapshot(): Promise<LedgerSnapshot> {
 export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
   try {
     if (process.env.DATABASE_URL) {
+      // Ensure DB initialized
+      await ensureDbReady();
         const existingRows = await prisma.ledgerSnapshot.findMany();
         const nextKeysArr = Object.keys(nextSnapshot);
 
@@ -51,11 +58,24 @@ export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
         const keysToDelete = existingRows.filter((row) => !nextKeys.has(row.key)).map((row) => row.key);
 
         if (keysToDelete.length) {
-          await prisma.ledgerSnapshot.deleteMany({ where: { key: { in: keysToDelete } } });
+          if (process.env.ALLOW_SNAPSHOT_DELETES !== 'true') {
+            const audit = { type: 'ledger', action: 'delete_blocked', payload: { attemptedDeletes: keysToDelete, existingKeys: existingRows.map(r=>r.key) } };
+            try {
+              await prisma.$executeRaw`INSERT INTO SnapshotAudit (id, type, action, payload) VALUES (UUID(), ${audit.type}, ${audit.action}, ${JSON.stringify(audit.payload)})`;
+            } catch {}
+            try {
+              const auditDir = path.join(process.cwd(), 'data', 'audit');
+              if (!fs.existsSync(auditDir)) fs.mkdirSync(auditDir, { recursive: true });
+              const ts = new Date().toISOString().replace(/[:.]/g, '-');
+              fs.writeFileSync(path.join(auditDir, `ledger-delete-blocked-${ts}.json`), JSON.stringify(audit, null, 2), 'utf-8');
+            } catch {}
+          } else {
+            await prisma.ledgerSnapshot.deleteMany({ where: { key: { in: keysToDelete } } });
+          }
         }
 
         await Promise.all(
-          Object.entries(nextSnapshot).map(([key, value]) =>
+        Object.entries(nextSnapshot).map(([key, value]) =>
             prisma.ledgerSnapshot.upsert({
               where: { key },
               create: { key, value },
@@ -63,6 +83,26 @@ export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
             }),
           ),
         );
+        // also save a timestamped version for recovery
+        try {
+          const snapshotsDir = path.join(process.cwd(), 'data', 'snapshots', 'ledger');
+          if (!fs.existsSync(snapshotsDir)) fs.mkdirSync(snapshotsDir, { recursive: true });
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          const filePath = path.join(snapshotsDir, `ledger-${ts}.json`);
+          fs.writeFileSync(filePath, JSON.stringify(nextSnapshot, null, 2), 'utf-8');
+          const files = fs.readdirSync(snapshotsDir).filter((f) => f.endsWith('.json')).sort();
+          while (files.length > 5) {
+            const old = files.shift();
+            if (old) try { fs.unlinkSync(path.join(snapshotsDir, old)); } catch {}
+          }
+        } catch (err) {
+          console.error('ledger snapshot version save error:', err);
+        }
+        // record audit of the write
+        try {
+          const audit = { type: 'ledger', action: 'write', payload: { keys: Object.keys(nextSnapshot) } };
+          await prisma.$executeRaw`INSERT INTO SnapshotAudit (id, type, action, payload) VALUES (UUID(), ${audit.type}, ${audit.action}, ${JSON.stringify(audit.payload)})`;
+        } catch (err) {}
       return;
     }
   } catch (error) {
@@ -75,6 +115,21 @@ export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
   }
 
   fs.writeFileSync(LEDGER_SNAPSHOT_FILE, JSON.stringify(nextSnapshot, null, 2), 'utf-8');
+  // keep file-based versions as well
+  try {
+    const snapshotsDir = path.join(process.cwd(), 'data', 'snapshots', 'ledger');
+    if (!fs.existsSync(snapshotsDir)) fs.mkdirSync(snapshotsDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const filePath = path.join(snapshotsDir, `ledger-${ts}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(nextSnapshot, null, 2), 'utf-8');
+    const files = fs.readdirSync(snapshotsDir).filter((f) => f.endsWith('.json')).sort();
+    while (files.length > 5) {
+      const old = files.shift();
+      if (old) try { fs.unlinkSync(path.join(snapshotsDir, old)); } catch {}
+    }
+  } catch (err) {
+    console.error('ledger snapshot version save error:', err);
+  }
 }
 
 export async function updateLedgerSnapshot(key: string, value: string | null) {

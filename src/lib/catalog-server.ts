@@ -2,6 +2,7 @@ import 'server-only';
 import fs from 'fs';
 import path from 'path';
 import prisma from './db';
+import ensureDbReady from './db-init';
 
 export const CATALOG_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'catalog-snapshot.json');
 
@@ -43,6 +44,10 @@ function sanitizeCatalogSnapshot(snapshot: Record<string, string>) {
 
 // Read snapshot from Prisma when possible, otherwise fallback to file.
 export async function readCatalogSnapshot(): Promise<Record<string, string>> {
+  // ensure DB tables exist (best-effort)
+  try {
+    await ensureDbReady();
+  } catch {}
   try {
     if (process.env.DATABASE_URL) {
       const rows = await prisma.catalogSnapshot.findMany();
@@ -84,8 +89,27 @@ export async function readCatalogSnapshot(): Promise<Record<string, string>> {
 export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>) {
   const sanitizedSnapshot = sanitizeCatalogSnapshot(nextSnapshot);
 
+  // Save a timestamped version on every write for recovery (keeps last 5)
+  try {
+    const snapshotsDir = path.join(process.cwd(), 'data', 'snapshots', 'catalog');
+    if (!fs.existsSync(snapshotsDir)) fs.mkdirSync(snapshotsDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const filePath = path.join(snapshotsDir, `catalog-${ts}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(sanitizedSnapshot, null, 2), 'utf-8');
+    // rotate keep last 5
+    const files = fs.readdirSync(snapshotsDir).filter((f) => f.endsWith('.json')).sort();
+    while (files.length > 5) {
+      const old = files.shift();
+      if (old) try { fs.unlinkSync(path.join(snapshotsDir, old)); } catch {}
+    }
+  } catch (err) {
+    console.error('catalog snapshot version save error:', err);
+  }
+
   try {
     if (process.env.DATABASE_URL) {
+      // Ensure DB initialized
+      await ensureDbReady();
       const existingRows = await prisma.catalogSnapshot.findMany();
       const nextKeysArr = Object.keys(sanitizedSnapshot);
 
@@ -100,7 +124,24 @@ export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>)
       const nextKeys = new Set(nextKeysArr);
       const keysToDelete = existingRows.filter((row) => !nextKeys.has(row.key)).map((row) => row.key);
       if (keysToDelete.length) {
-        await prisma.catalogSnapshot.deleteMany({ where: { key: { in: keysToDelete } } });
+        // If implicit deletes are attempted, block them unless explicitly allowed via env.
+        if (process.env.ALLOW_SNAPSHOT_DELETES !== 'true') {
+          // Record attempted delete in audit (DB + file) and skip deleting
+          const audit = { type: 'catalog', action: 'delete_blocked', payload: { attemptedDeletes: keysToDelete, existingKeys: existingRows.map(r=>r.key) } };
+          try {
+            await prisma.$executeRaw`INSERT INTO SnapshotAudit (id, type, action, payload) VALUES (UUID(), ${audit.type}, ${audit.action}, ${JSON.stringify(audit.payload)})`;
+          } catch (err) {
+            // ignore if audit table missing
+          }
+          try {
+            const auditDir = path.join(process.cwd(), 'data', 'audit');
+            if (!fs.existsSync(auditDir)) fs.mkdirSync(auditDir, { recursive: true });
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            fs.writeFileSync(path.join(auditDir, `catalog-delete-blocked-${ts}.json`), JSON.stringify(audit, null, 2), 'utf-8');
+          } catch {}
+        } else {
+          await prisma.catalogSnapshot.deleteMany({ where: { key: { in: keysToDelete } } });
+        }
       }
 
       await Promise.all(
@@ -112,6 +153,13 @@ export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>)
           }),
         ),
       );
+      // record audit of the write
+      try {
+        const audit = { type: 'catalog', action: 'write', payload: { keys: Object.keys(sanitizedSnapshot) } };
+        await prisma.$executeRaw`INSERT INTO SnapshotAudit (id, type, action, payload) VALUES (UUID(), ${audit.type}, ${audit.action}, ${JSON.stringify(audit.payload)})`;
+      } catch (err) {
+        // ignore if audit table not present
+      }
 
       const keysToKeep = existingRows.filter((row) => nextKeys.has(row.key)).length;
       if (existingKeys.size !== nextKeys.size || keysToDelete.length || keysToKeep !== nextKeys.size) {

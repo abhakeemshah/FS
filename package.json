@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "postinstall": "npx prisma db push || true",
     "dev": "next dev",
     "build": "next build",
     "start": "npx prisma db push && next start",
@@ -14,23 +15,26 @@
     "pm2:logs": "pm2 logs fs-communication",
     "deploy": "bash deploy.sh"
   },
+  "bin": {
+    "restore-snapshot": "src/scripts/restore-snapshot.ts"
+  },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
     "next": "16.2.3",
+    "prisma": "^5.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",
-    "prisma": "^5.22.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
     "typescript": "^5.8.3"

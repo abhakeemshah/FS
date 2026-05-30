@@ -16,3 +16,6 @@ pnpm-debug.log*
 *.pem
 *.key
 prisma/dev.db
+data/db-backups
+data/snapshots
+data/audit
