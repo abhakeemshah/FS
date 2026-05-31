@@ -4,6 +4,10 @@ import path from 'path';
 import prisma from './db';
 import ensureDbReady from './db-init';
 
+function shouldUseDb() {
+  return !!process.env.DATABASE_URL && (process.env.NODE_ENV === 'production' || process.env.FS_USE_DB === 'true');
+}
+
 export const CATALOG_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'catalog-snapshot.json');
 
 const SEED_PRODUCT_PREFIX = 'seed-prd-';
@@ -49,7 +53,7 @@ export async function readCatalogSnapshot(): Promise<Record<string, string>> {
     await ensureDbReady();
   } catch {}
   try {
-    if (process.env.DATABASE_URL) {
+    if (shouldUseDb()) {
       const rows = await prisma.catalogSnapshot.findMany();
       const out: Record<string, string> = {};
       for (const r of rows) {
@@ -107,7 +111,7 @@ export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>)
   }
 
   try {
-    if (process.env.DATABASE_URL) {
+    if (shouldUseDb()) {
       // Ensure DB initialized
       await ensureDbReady();
       const existingRows = await prisma.catalogSnapshot.findMany();
@@ -176,7 +180,7 @@ export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>)
 
 export async function updateCatalogSnapshot(key: string, value: string | null) {
   try {
-    if (process.env.DATABASE_URL) {
+  if (shouldUseDb()) {
       if (value === null) {
         await prisma.catalogSnapshot.deleteMany({ where: { key } });
       } else {

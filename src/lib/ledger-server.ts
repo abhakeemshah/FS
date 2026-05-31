@@ -6,6 +6,10 @@ import path from 'path';
 import prisma from './db';
 import ensureDbReady from './db-init';
 
+function shouldUseDb() {
+  return !!process.env.DATABASE_URL && (process.env.NODE_ENV === 'production' || process.env.FS_USE_DB === 'true');
+}
+
 export type LedgerSnapshot = Record<string, string>;
 
 const LEDGER_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'ledger-snapshot.json');
@@ -16,7 +20,7 @@ export async function readLedgerSnapshot(): Promise<LedgerSnapshot> {
     await ensureDbReady();
   } catch {}
   try {
-    if (process.env.DATABASE_URL) {
+    if (shouldUseDb()) {
       const rows = await prisma.ledgerSnapshot.findMany();
       const snapshot: Record<string, string> = {};
 
@@ -43,7 +47,7 @@ export async function readLedgerSnapshot(): Promise<LedgerSnapshot> {
 
 export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
   try {
-    if (process.env.DATABASE_URL) {
+  if (shouldUseDb()) {
       // Ensure DB initialized
       await ensureDbReady();
         const existingRows = await prisma.ledgerSnapshot.findMany();
@@ -134,7 +138,7 @@ export async function writeLedgerSnapshot(nextSnapshot: LedgerSnapshot) {
 
 export async function updateLedgerSnapshot(key: string, value: string | null) {
   try {
-    if (process.env.DATABASE_URL) {
+  if (shouldUseDb()) {
       if (value === null) {
         await prisma.ledgerSnapshot.deleteMany({ where: { key } });
       } else {
