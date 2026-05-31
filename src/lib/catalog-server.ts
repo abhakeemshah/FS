@@ -160,11 +160,6 @@ export async function writeCatalogSnapshot(nextSnapshot: Record<string, string>)
       } catch (err) {
         // ignore if audit table not present
       }
-
-      const keysToKeep = existingRows.filter((row) => nextKeys.has(row.key)).length;
-      if (existingKeys.size !== nextKeys.size || keysToDelete.length || keysToKeep !== nextKeys.size) {
-        // The snapshot was reconciled key-by-key, so unrelated rows remain intact.
-      }
       return;
     }
   } catch (err) {
