@@ -103,6 +103,22 @@ async function updateLedgerSnapshot(key: string, value: string | null) {
 
 export async function GET() {
   try {
+    const cookieStore = await cookies();
+    const authToken = cookieStore.get('auth-token')?.value;
+
+    if (!authToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+      const payload = await jwtVerify(authToken);
+      if (!payload?.role) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
     const snapshot = await readLedgerSnapshot();
     return NextResponse.json({ snapshot });
   } catch (error) {

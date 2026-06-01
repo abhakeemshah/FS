@@ -1,6 +1,6 @@
 import * as bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
-import { jwtVerify } from './jwt';
+import { jwtVerify, getJwtSecret } from './jwt';
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10);
@@ -18,7 +18,7 @@ export interface AuthPayload {
 }
 
 export async function createAuthToken(payload: AuthPayload): Promise<string> {
-  const secret = process.env.JWT_SECRET || 'your-secret-key';
+  const secret = getJwtSecret();
   const key = new TextEncoder().encode(secret);
 
   return new SignJWT({ ...payload })

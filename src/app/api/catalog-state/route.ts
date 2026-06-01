@@ -3,9 +3,37 @@ import { cookies } from 'next/headers';
 import { jwtVerify } from '../../../lib/jwt';
 import { readCatalogSnapshot, updateCatalogSnapshot } from '../../../lib/catalog-server';
 
+// Keys inside the catalog snapshot that must never be exposed to unauthenticated
+// callers. The storefront only needs product/category/landing data; admin
+// settings live in the same snapshot but are private.
+const PRIVATE_CATALOG_KEYS = ['fs-communication:admin-settings'];
+
 export async function GET() {
   const snapshot = await readCatalogSnapshot();
-  return NextResponse.json({ snapshot });
+
+  // The catalog feeds the public storefront, so this endpoint stays public.
+  // For unauthenticated requests, strip any private keys before responding.
+  const cookieStore = await cookies();
+  const authToken = cookieStore.get('auth-token')?.value;
+  let isAuthenticated = false;
+  if (authToken) {
+    try {
+      const payload = await jwtVerify(authToken);
+      isAuthenticated = !!payload?.role;
+    } catch {
+      isAuthenticated = false;
+    }
+  }
+
+  if (isAuthenticated) {
+    return NextResponse.json({ snapshot });
+  }
+
+  const publicSnapshot: Record<string, string> = { ...snapshot };
+  for (const key of PRIVATE_CATALOG_KEYS) {
+    delete publicSnapshot[key];
+  }
+  return NextResponse.json({ snapshot: publicSnapshot });
 }
 
 export async function POST(req: NextRequest) {
