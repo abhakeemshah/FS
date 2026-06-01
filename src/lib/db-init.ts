@@ -21,6 +21,20 @@ export async function ensureDbReady() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // Create User table if missing so staff/auth routes can self-heal on fresh deployments.
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS \`User\` (
+        id VARCHAR(191) PRIMARY KEY,
+        email VARCHAR(191) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        name VARCHAR(191) NULL,
+        role VARCHAR(32) NOT NULL DEFAULT 'staff',
+        staffAccessMetaJson LONGTEXT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     // Create LedgerSnapshot table if missing
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS LedgerSnapshot (

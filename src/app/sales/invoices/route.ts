@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export function GET(request: Request) {
   const url = new URL(request.url);
-  url.pathname = '/login/admin/sales/invoices';
+  url.pathname = '/access/admin/sales/invoices';
   return NextResponse.redirect(url, 307);
 }
 

@@ -313,7 +313,7 @@ export default function CustomerPartiesPage() {
 	useEffect(() => {
 		const staff = readStaffSession();
 		if (!staff && !hasAdminSession()) {
-			router.push('/login');
+			router.push('/access');
 		}
 	}, [router]);
 

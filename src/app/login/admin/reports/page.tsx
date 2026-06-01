@@ -410,7 +410,7 @@ export default function AdminReportsPage() {
       setAccessState(allowed ? 'allowed' : 'denied');
 
       if (!allowed) {
-        router.replace('/login');
+        router.replace('/access');
       }
     };
 

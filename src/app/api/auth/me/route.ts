@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import prisma from '../../../../lib/db';
+import { ensureDbReady } from '../../../../lib/db-init';
 import { jwtVerify } from '../../../../lib/jwt';
 import { normalizeStaffAccessMeta, createDefaultStaffAccessMeta } from '../../../../lib/staff-auth';
 
 export async function GET(_req: NextRequest) {
 	try {
+		await ensureDbReady();
+
 		const cookieStore = await cookies();
 		const authToken = cookieStore.get('auth-token')?.value;
 

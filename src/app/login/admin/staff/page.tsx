@@ -79,7 +79,7 @@ export default function AdminStaffPage() {
 			const allowed = hasAdminSession();
 			setAdminReady(allowed);
 			if (!allowed) {
-				router.replace('/login');
+						router.replace('/access');
 			}
 		};
 

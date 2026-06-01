@@ -124,7 +124,7 @@ function RightPanel() {
 
           if (role === 'admin') {
             saveAdminSession();
-            router.push('/login/admin/dashboard');
+            router.push('/access/admin/dashboard');
             return;
           }
 
@@ -135,7 +135,7 @@ function RightPanel() {
           }
 
           saveStaffSession({ id: user.id, name: user.name, username: user.email });
-          router.push('/login/staff/dashboard');
+          router.push('/access/staff/dashboard');
         },
         { loadingLabel: 'Signing in...', successMessage: 'Signed in' },
       );

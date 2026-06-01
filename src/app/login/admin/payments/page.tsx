@@ -58,7 +58,7 @@ export default function AdminPaymentsPage({ readOnly = false }: { readOnly?: boo
 	useEffect(() => {
 		const staff = readStaffSession();
 		if (!staff && !hasAdminSession()) {
-			router.push('/login');
+			router.push('/access');
 		}
 	}, [router]);
 

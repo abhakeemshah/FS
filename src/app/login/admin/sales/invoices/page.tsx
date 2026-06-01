@@ -48,7 +48,7 @@ export default function AdminSalesInvoicesPage({ readOnly = false }: { readOnly?
 		// Only redirect to login when there is no admin session AND no staff session.
 		// Previously this redirected staff users back to login when admin session was absent.
 		if (!staff && !hasAdminSession()) {
-			router.push('/login');
+			router.push('/access');
 		}
 	}, [router]);
 

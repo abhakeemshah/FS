@@ -231,7 +231,7 @@ export default function AdminPurchasesPage() {
     useEffect(() => {
         const staff = readStaffSession();
         if (!staff && !hasAdminSession()) {
-            router.push('/login');
+            router.push('/access');
         }
     }, [router]);
 

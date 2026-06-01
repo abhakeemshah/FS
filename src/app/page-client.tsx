@@ -637,7 +637,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
                   className="h-9 w-[200px] rounded-full border border-slate-200 bg-slate-50 pl-9 pr-4 text-[12px] outline-none transition-colors placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
                 />
               </label>
-              <Link className="rounded-full border border-blue-950 bg-blue-950 px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-blue-900" href="/login">
+              <Link className="rounded-full border border-blue-950 bg-blue-950 px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-blue-900" href="/access">
                 {t('Login')}
               </Link>
             </div>
@@ -799,7 +799,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
                 <a className="transition-colors hover:text-white" href="#grid">{t('Products')}</a>
                 <a className="transition-colors hover:text-white" href="#featured">{t('Categories')}</a>
                 <a className="transition-colors hover:text-white" href="#support">{t('Support')}</a>
-                <Link className="transition-colors hover:text-white" href="/login">{t('Login')}</Link>
+                <Link className="transition-colors hover:text-white" href="/access">{t('Login')}</Link>
               </div>
             </div>
 

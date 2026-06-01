@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/db';
+import { ensureDbReady } from '../../../../lib/db-init';
 import { verifyPassword, createAuthToken } from '../../../../lib/auth';
 import { cookies } from 'next/headers';
 import { findStaffAccountFileRecordByEmail } from '../../../../lib/staff-store-server';
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureDbReady();
+
     const { email, password, role } = await req.json();
 
     if (!email || !password || !role) {

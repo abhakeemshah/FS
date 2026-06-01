@@ -57,7 +57,7 @@ export default function DashboardPageClient({ initialSalesBills = [], initialMet
   useEffect(() => {
     const staff = readStaffSession();
     if (mode !== 'staff' && !staff && !hasAdminSession()) {
-      router.push('/login');
+      router.push('/access');
     }
   }, [mode, router]);
 

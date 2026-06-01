@@ -21,32 +21,32 @@ export function useWorkspaceMode() {
 }
 
 const adminNavItems: Array<{ key: AdminSection; label: string; icon: string; href: string }> = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/login/admin/dashboard' },
-  { key: 'sales', label: 'Sales', icon: 'payments', href: '/login/admin/sales/invoices' },
-  { key: 'products', label: 'Products', icon: 'inventory_2', href: '/login/admin/products' },
-  { key: 'purchases', label: 'Purchases', icon: 'shopping_cart', href: '/login/admin/purchases' },
-  { key: 'payments', label: 'Payments', icon: 'account_balance_wallet', href: '/login/admin/payments' },
-  { key: 'reports', label: 'Reports', icon: 'analytics', href: '/login/admin/reports' },
-  { key: 'settings', label: 'Settings', icon: 'settings', href: '/login/admin/settings' },
+  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/access/admin/dashboard' },
+  { key: 'sales', label: 'Sales', icon: 'payments', href: '/access/admin/sales/invoices' },
+  { key: 'products', label: 'Products', icon: 'inventory_2', href: '/access/admin/products' },
+  { key: 'purchases', label: 'Purchases', icon: 'shopping_cart', href: '/access/admin/purchases' },
+  { key: 'payments', label: 'Payments', icon: 'account_balance_wallet', href: '/access/admin/payments' },
+  { key: 'reports', label: 'Reports', icon: 'analytics', href: '/access/admin/reports' },
+  { key: 'settings', label: 'Settings', icon: 'settings', href: '/access/admin/settings' },
 ];
 
 const staffNavItems: Array<{ key: AdminSection; label: string; icon: string; href: string }> = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/login/staff/dashboard' },
-  { key: 'sales', label: 'Sales', icon: 'payments', href: '/login/staff/sales' },
-  { key: 'products', label: 'Products', icon: 'inventory_2', href: '/login/staff/products' },
-  { key: 'purchases', label: 'Purchases', icon: 'shopping_cart', href: '/login/staff/purchases' },
-  { key: 'payments', label: 'Payments', icon: 'account_balance_wallet', href: '/login/staff/payments' },
-  { key: 'reports', label: 'Reports', icon: 'analytics', href: '/login/staff/reports' },
+  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '/access/staff/dashboard' },
+  { key: 'sales', label: 'Sales', icon: 'payments', href: '/access/staff/sales' },
+  { key: 'products', label: 'Products', icon: 'inventory_2', href: '/access/staff/products' },
+  { key: 'purchases', label: 'Purchases', icon: 'shopping_cart', href: '/access/staff/purchases' },
+  { key: 'payments', label: 'Payments', icon: 'account_balance_wallet', href: '/access/staff/payments' },
+  { key: 'reports', label: 'Reports', icon: 'analytics', href: '/access/staff/reports' },
 ];
 
 const adminPartyNavItems = [
-  { key: 'customers', label: 'Customers', href: '/login/admin/parties/customers' },
-  { key: 'suppliers', label: 'Suppliers', href: '/login/admin/parties/suppliers' },
+  { key: 'customers', label: 'Customers', href: '/access/admin/parties/customers' },
+  { key: 'suppliers', label: 'Suppliers', href: '/access/admin/parties/suppliers' },
 ];
 
 const staffPartyNavItems = [
-	{ key: 'customers', label: 'Customers', href: '/login/staff/parties/customers' },
-	{ key: 'suppliers', label: 'Suppliers', href: '/login/staff/parties/suppliers' },
+  { key: 'customers', label: 'Customers', href: '/access/staff/parties/customers' },
+  { key: 'suppliers', label: 'Suppliers', href: '/access/staff/parties/suppliers' },
 ];
 
 type AdminShellContextValue = {
@@ -95,13 +95,13 @@ export function AdminShell({
   const handleLogout = () => {
     if (mode === 'staff') {
       clearStaffSession();
-      router.push('/login');
+      router.push('/access');
       return;
     }
 
     clearAdminSession();
     window.localStorage.removeItem('admin-sidebar-collapsed');
-    router.push('/login/admin');
+    router.push('/access');
   };
 
   useEffect(() => {
@@ -144,7 +144,7 @@ export function AdminShell({
   }, [isCollapsed, isReady]);
 
   useEffect(() => {
-    const partiesPathPrefix = mode === 'staff' ? '/login/staff/parties' : '/login/admin/parties';
+    const partiesPathPrefix = mode === 'staff' ? '/access/staff/parties' : '/access/admin/parties';
     setIsPartiesMenuOpen(Boolean(pathname?.startsWith(partiesPathPrefix)));
   }, [pathname, mode]);
 
@@ -173,7 +173,7 @@ export function AdminShell({
       // If a staff session exists but no admin session is active,
       // navigate away to the login page (logic-only guard).
       if (mode !== 'staff' && staff && !hasAdminSession()) {
-        router.push('/login');
+        router.push('/access');
       }
     };
 
@@ -300,7 +300,7 @@ export function AdminShell({
 
           {mode === 'admin' && isAdminActive ? (
             <Link
-              href="/login/admin/staff"
+              href="/access/admin/staff"
               title={collapsed ? 'Staff' : undefined}
               className={`group ${
                 active === 'staff'

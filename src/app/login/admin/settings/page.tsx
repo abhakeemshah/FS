@@ -194,7 +194,7 @@ export default function AdminSettingsPage() {
       setAccessState(allowed ? 'allowed' : 'denied');
 
       if (!allowed) {
-        router.replace('/login');
+        router.replace('/access');
       }
     };
 

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function StaffReportsEditorRedirect() {
-	redirect('/login/staff/reports');
+	redirect('/access/staff/reports');
 }

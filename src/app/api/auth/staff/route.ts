@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/db';
+import { ensureDbReady } from '../../../../lib/db-init';
 import { hashPassword } from '../../../../lib/auth';
 import { cookies } from 'next/headers';
 import { jwtVerify } from '../../../../lib/jwt';
@@ -22,6 +23,8 @@ async function verifyAdminSession(authToken: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureDbReady();
+
     const cookieStore = await cookies();
     const authToken = cookieStore.get('auth-token')?.value;
 
@@ -121,6 +124,8 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureDbReady();
+
     const cookieStore = await cookies();
     const authToken = cookieStore.get('auth-token')?.value;
 
@@ -191,6 +196,8 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    await ensureDbReady();
+
     const cookieStore = await cookies();
     const authToken = cookieStore.get('auth-token')?.value;
 

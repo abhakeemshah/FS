@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/db';
+import { ensureDbReady } from '../../../lib/db-init';
 import { normalizeStaffAccessMeta, createDefaultStaffAccessMeta } from '../../../lib/staff-auth';
 import { findStaffAccountFileRecordById } from '../../../lib/staff-store-server';
 import fs from 'fs';
@@ -7,6 +8,8 @@ import path from 'path';
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureDbReady();
+
     const url = new URL(req.url);
     const username = url.searchParams.get('username')?.trim().toLowerCase();
     const userId = url.searchParams.get('id')?.trim();

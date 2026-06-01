@@ -39,9 +39,13 @@ Deploy notes (Hostinger / generic)
 - On the server run:
 
   npm ci
-  npx prisma db push   # create tables if needed
+  npm run safe:prisma:push   # backup first, then prisma db push
   npm run build
   npm start
+
+- If your server has Bash and not PowerShell, use:
+
+  npm run safe:prisma:push:sh
 
 - If using `pm2`, you can run `pm2 start ecosystem.config.js --name fs-communication` instead of `npm start`.
 
