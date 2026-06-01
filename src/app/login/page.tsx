@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveAdminSession, saveStaffSession } from '../../lib/staff-auth';
-import { getHostingSupportMessage } from '../../lib/hosting-support';
 import { BUSINESS_PROFILE } from '../../lib/business-profile';
 import { useAppFeedback } from '../../components/app-feedback';
 
@@ -55,8 +54,6 @@ function RightPanel() {
   const [error, setError] = useState('');
   const router = useRouter();
   const { withLoading } = useAppFeedback();
-  const [supportVisible, setSupportVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const selectRole = (r: 'admin' | 'staff') => {
     setError('');
@@ -86,33 +83,7 @@ function RightPanel() {
               contentType,
               preview: raw.slice(0, 200),
             });
-            const looksLikeBotChallenge = /bot verification|verify you are not a robot|recaptcha|cloudflare|access denied/i.test(raw);
-            // Try a quick health check to provide a clearer message for Hostinger/WAF issues
-            try {
-              const statusResp = await fetch('/api/status', { cache: 'no-store' });
-              const statusContentType = statusResp.headers.get('content-type') || '';
-              if (statusResp.ok && statusContentType.includes('application/json')) {
-                const statusJson = await statusResp.json();
-                // If status returns ok:false or filesystem/prisma issues, surface that
-                if (!statusJson?.ok) {
-                  setError('Server health check failed. Please check hosting environment.');
-                } else if (looksLikeBotChallenge) {
-                  setError('The hosting provider is blocking the login request with a bot verification page. Please disable bot protection or whitelist /api routes.');
-                } else {
-                  setError(raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.');
-                }
-              } else {
-                // If /api/status itself is blocked or returns HTML, it's almost certainly WAF
-                setError('Hosting provider is returning an HTML challenge or error for API requests. Please contact your host and whitelist API routes.');
-              }
-            } catch (healthErr) {
-              // Health check failed — assume host protection
-              setError(
-                looksLikeBotChallenge
-                  ? 'The hosting provider is blocking the login request with a bot verification page. Please disable bot protection for this site or whitelist /api routes.'
-                  : (raw.trim() ? raw.slice(0, 140) : 'Server returned an unexpected response. Please try again.')
-              );
-            }
+            setError('We could not reach the server. Please try again in a moment.');
             throw new Error('Unexpected response');
           }
 
@@ -187,61 +158,6 @@ function RightPanel() {
         </form>
 
       </div>
-      {/* If the error looks like a hosting bot/challenge page, surface a clear professional banner */}
-      {error && /bot verification|verify you are not a robot|recaptcha|cloudflare|access denied|hosting provider/i.test(error) ? (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <div className="font-semibold">Hosting protection blocking login</div>
-          <div className="mt-1">It looks like the hosting provider is returning a bot-verification page for API requests. This prevents the site from completing sign-in.</div>
-          <ul className="mt-2 ml-4 list-disc">
-            <li>Disable Bot / WAF protection for <strong>fs-communication.com</strong> or</li>
-            <li>Whitelist the following API routes: <code className="rounded bg-slate-100 px-1">/api/auth/*</code> and <code className="rounded bg-slate-100 px-1">/api/ledger-state</code></li>
-            <li>Alternatively, deploy behind a proper proxy or set a health-check token and use our <code className="rounded bg-slate-100 px-1">/api/status</code> endpoint to verify connectivity</li>
-          </ul>
-          <div className="mt-3 flex gap-2">
-            <a className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white" href="https://help.hostinger.com/en/articles" target="_blank" rel="noreferrer">Hostinger docs</a>
-            <button type="button" onClick={() => setError('')} className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Dismiss</button>
-            <button
-              type="button"
-              onClick={() => {
-                setSupportVisible((s) => !s);
-                setCopied(false);
-              }}
-              className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"
-            >
-              {supportVisible ? 'Hide support text' : 'Copy support message'}
-            </button>
-          </div>
-        </div>
-      ) : null}
-      {/* Support message drawer */}
-      {supportVisible ? (
-        <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 text-sm">
-          <div className="flex items-start justify-between">
-            <div className="text-slate-700">Support message (click copy to send to Hostinger)</div>
-            <div className="ml-2 text-xs text-slate-500">{copied ? 'Copied' : ''}</div>
-          </div>
-          <textarea readOnly value={getHostingSupportMessage(typeof window !== 'undefined' ? window.location.hostname : 'your-site-domain.com')} className="w-full mt-2 p-2 text-xs font-mono h-36 rounded border border-slate-200 bg-slate-50" />
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const msg = getHostingSupportMessage(window.location.hostname);
-                  await navigator.clipboard.writeText(msg);
-                  setCopied(true);
-                } catch (e) {
-                  setCopied(false);
-                  void navigator.clipboard?.writeText?.(getHostingSupportMessage(''));
-                }
-              }}
-              className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold text-white"
-            >
-              Copy message
-            </button>
-            <a href="https://support.hostinger.com" target="_blank" rel="noreferrer" className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold">Open Hostinger support</a>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
