@@ -1,5 +1,3 @@
-'use client';
-
 import { StaffPageFrame } from '../../../../components/staff-page-frame';
 import { WorkspaceModeProvider } from '../../../../components/admin-shell';
 import AdminDashboardPage from '../../admin/dashboard/page';

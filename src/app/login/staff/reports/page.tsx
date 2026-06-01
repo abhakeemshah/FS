@@ -1,5 +1,3 @@
-'use client';
-
 import AdminReportsPage from '../../admin/reports/page';
 import { StaffPageFrame } from '../../../../components/staff-page-frame';
 import { WorkspaceModeProvider } from '../../../../components/admin-shell';

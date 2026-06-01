@@ -1,5 +1,3 @@
-'use client';
-
 import AdminPartySuppliersPage from '../../../admin/parties/suppliers/page';
 import { StaffPageFrame } from '../../../../../components/staff-page-frame';
 import { WorkspaceModeProvider } from '../../../../../components/admin-shell';

@@ -1,5 +1,3 @@
-'use client';
-
 import AdminSalesInvoicesPage from '../../admin/sales/invoices/page';
 import { StaffPageFrame } from '../../../../components/staff-page-frame';
 import { WorkspaceModeProvider } from '../../../../components/admin-shell';

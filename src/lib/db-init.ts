@@ -8,8 +8,8 @@ export async function ensureDbReady() {
   initialized = true;
 
   try {
-    // In development, prefer file-based fallback unless explicitly enabled.
-    if (!process.env.DATABASE_URL || (process.env.NODE_ENV !== 'production' && process.env.FS_USE_DB !== 'true')) return;
+    // DB bootstrap is opt-in to avoid request stalls when DB is unreachable.
+    if (!process.env.DATABASE_URL || process.env.FS_USE_DB !== 'true') return;
 
     // Create CatalogSnapshot table if missing
     await prisma.$executeRawUnsafe(`
