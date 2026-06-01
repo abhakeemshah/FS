@@ -7,6 +7,17 @@ const ADMIN_SETTINGS_STORAGE_KEY = 'fs-communication:admin-settings';
 
 export async function GET() {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    try {
+      const payload = await jwtVerify(token);
+      if (!payload?.role) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    } catch {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
     const snapshot = await readCatalogSnapshot();
     const raw = snapshot[ADMIN_SETTINGS_STORAGE_KEY] ?? null;
     return NextResponse.json({ settings: raw ? JSON.parse(raw) : null });
