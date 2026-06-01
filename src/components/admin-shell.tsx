@@ -238,6 +238,7 @@ export function AdminShell({
               <Link
                 key={item.key}
                 href={item.href}
+                prefetch={false}
                 title={collapsed ? item.label : undefined}
                 className={linkClassName}
               >
@@ -285,6 +286,7 @@ export function AdminShell({
                   <Link
                     key={item.key}
                     href={item.href}
+                    prefetch={false}
                     className={`block rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200 ${
                       isActive
                         ? 'border-rose-200 bg-rose-50 text-rose-700 shadow-sm'
@@ -301,6 +303,7 @@ export function AdminShell({
           {mode === 'admin' && isAdminActive ? (
             <Link
               href="/access/admin/staff"
+              prefetch={false}
               title={collapsed ? 'Staff' : undefined}
               className={`group ${
                 active === 'staff'
