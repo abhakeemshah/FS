@@ -176,7 +176,7 @@ export default function AdminStaffPage() {
 
 				forceLogout(accountId);
 				setExpandedAccountId((current) => (current === accountId ? null : current));
-				window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
+				window.dispatchEvent(new Event('storage'));
 			} catch {
 				// noop
 			}
@@ -207,7 +207,7 @@ export default function AdminStaffPage() {
 			void updateStaffPasswordOnServer(passwordTargetId, newPasswordInput);
 			// force logout the user if currently logged in
 			forceLogout(passwordTargetId);
-			window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
+			window.dispatchEvent(new Event('storage'));
 			setIsChangePasswordOpen(false);
 			setPasswordTargetId(null);
 			setNewPasswordInput('');

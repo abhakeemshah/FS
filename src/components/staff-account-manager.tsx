@@ -68,7 +68,7 @@ export function StaffAccountManager() {
 			setUsername('');
 			setPassword('');
 			refreshAccounts();
-			window.dispatchEvent(new Event(STAFF_AUTH_EVENT));
+			window.dispatchEvent(new Event('storage'));
 		} catch (error) {
 			setMessage('An error occurred. Please try again.');
 			console.error(error);
