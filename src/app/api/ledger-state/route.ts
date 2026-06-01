@@ -4,8 +4,18 @@ import { jwtVerify } from '../../../lib/jwt';
 import fs from 'fs';
 import path from 'path';
 import prisma from '../../../lib/db';
+import { resolveStaffAccessMeta, staffCanEditModule } from '../../../lib/staff-access-server';
+import type { StaffModuleKey } from '../../../lib/staff-auth';
 
 const LEDGER_SNAPSHOT_FILE = path.join(process.cwd(), 'data', 'ledger-snapshot.json');
+
+// Maps the ledger storage keys the client writes to the staff permission module
+// they belong to. Staff must have "edit" on the matching module to write.
+const LEDGER_KEY_MODULE: Record<string, StaffModuleKey> = {
+  'fs-communication:sales-bills': 'sales',
+  'fs-communication:purchases': 'purchases',
+  'fs-communication:manual-payments': 'payments',
+};
 
 async function readLedgerSnapshot(): Promise<Record<string, string>> {
   try {
@@ -136,8 +146,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    let payload: { id?: string; email?: string; role?: string } | null = null;
     try {
-      const payload = await jwtVerify(authToken);
+      payload = (await jwtVerify(authToken)) as { id?: string; email?: string; role?: string };
       if (!payload?.role) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
@@ -151,6 +162,25 @@ export async function POST(req: NextRequest) {
 
     if (!key) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    }
+
+    // Server-side permission enforcement. Admins may write anything. Staff may
+    // only write a ledger module they have "edit" access to. Permissions are
+    // read from trusted server state (not the request), so a view-only staff
+    // member cannot bypass this by editing a cookie or calling the API directly.
+    if (payload.role !== 'admin') {
+      const moduleKey = LEDGER_KEY_MODULE[key];
+      if (!moduleKey) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      const meta = await resolveStaffAccessMeta({ id: payload.id, email: payload.email });
+      if (!staffCanEditModule(meta, moduleKey)) {
+        return NextResponse.json(
+          { error: 'You do not have edit access for this section' },
+          { status: 403 },
+        );
+      }
     }
 
     const snapshot = await updateLedgerSnapshot(key, value);
