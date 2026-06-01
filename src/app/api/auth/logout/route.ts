@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getAuthCookieOptions } from '../../../../lib/auth-cookie-options';
 
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
-    cookieStore.delete('auth-token');
-    cookieStore.delete('auth-role');
+    const authCookieOptions = getAuthCookieOptions(req);
+    cookieStore.set('auth-token', '', { ...authCookieOptions, maxAge: 0 });
+    cookieStore.set('auth-role', '', { ...authCookieOptions, maxAge: 0 });
 
     return NextResponse.json({
       success: true,

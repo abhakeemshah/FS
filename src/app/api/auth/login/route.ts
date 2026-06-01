@@ -4,10 +4,12 @@ import { ensureDbReady } from '../../../../lib/db-init';
 import { verifyPassword, createAuthToken } from '../../../../lib/auth';
 import { cookies } from 'next/headers';
 import { findStaffAccountFileRecordByEmail } from '../../../../lib/staff-store-server';
+import { getAuthCookieOptions } from '../../../../lib/auth-cookie-options';
 
 export async function POST(req: NextRequest) {
   try {
     await ensureDbReady();
+    const authCookieOptions = getAuthCookieOptions(req);
 
     const { email, password, role } = await req.json();
 
@@ -43,20 +45,8 @@ export async function POST(req: NextRequest) {
       });
 
       const cookieStore = await cookies();
-      cookieStore.set('auth-token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60,
-        path: '/',
-      });
-      cookieStore.set('auth-role', 'admin', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60,
-        path: '/',
-      });
+      cookieStore.set('auth-token', token, authCookieOptions);
+      cookieStore.set('auth-role', 'admin', authCookieOptions);
 
       return NextResponse.json({
         success: true,
@@ -98,20 +88,8 @@ export async function POST(req: NextRequest) {
         });
 
         const cookieStore = await cookies();
-        cookieStore.set('auth-token', token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 24 * 60 * 60,
-          path: '/',
-        });
-        cookieStore.set('auth-role', 'staff', {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 24 * 60 * 60,
-          path: '/',
-        });
+        cookieStore.set('auth-token', token, authCookieOptions);
+        cookieStore.set('auth-role', 'staff', authCookieOptions);
 
         return NextResponse.json({
           success: true,
@@ -172,20 +150,8 @@ export async function POST(req: NextRequest) {
 
     // Set cookies
     const cookieStore = await cookies();
-    cookieStore.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60, // 24 hours
-      path: '/',
-    });
-    cookieStore.set('auth-role', user.role, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60, // 24 hours
-      path: '/',
-    });
+    cookieStore.set('auth-token', token, authCookieOptions);
+    cookieStore.set('auth-role', user.role, authCookieOptions);
 
     return NextResponse.json({
       success: true,
