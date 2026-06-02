@@ -27,7 +27,7 @@ export default function LoginPage() {
           {/* Left visual panel */}
           <div className="hidden md:flex items-center justify-center h-full">
             <div className="w-full h-[98%] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/30 bg-gray-100 relative">
-              <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80')` }} />
+              <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url('/fs-banner.webp')` }} />
               <div className="absolute bottom-6 left-6 text-white drop-shadow-lg" />
             </div>
           </div>
