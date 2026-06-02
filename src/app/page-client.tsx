@@ -280,6 +280,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
   const hotRightNowScrollerRef = useRef<HTMLDivElement | null>(null);
   const extraLandingScrollerRef = useRef<HTMLDivElement | null>(null);
   const shopName = BUSINESS_PROFILE.shopName;
+  const whatsappNumber = '923000211800';
 
   const translations: Record<'en' | 'ur', Record<string, string>> = {
     en: {
@@ -306,6 +307,8 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
       'Buy Product': 'Buy Product',
       'Buy Now': 'Buy Now',
       'Click Buy Now': 'Click Buy Now to contact admin',
+      'Shop on WhatsApp': 'Shop on WhatsApp',
+      'Click WhatsApp': 'Click “Shop on WhatsApp” to message us on WhatsApp',
       'All rights': 'All rights reserved.',
     },
     ur: {
@@ -332,11 +335,28 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
       'Buy Product': 'مصنوع خریدیں',
       'Buy Now': 'ابھی خریدیں',
       'Click Buy Now': 'ایڈمن سے رابطہ کرنے کے لیے ابھی خریدیں پر کلک کریں',
+      'Shop on WhatsApp': 'واٹس ایپ پر خریدیں',
+      'Click WhatsApp': 'واٹس ایپ پر میسج کرنے کے لیے “واٹس ایپ پر خریدیں” پر کلک کریں',
       'All rights': 'تمام حقوق محفوظ ہیں۔',
     },
   };
 
   const t = (key: string): string => translations[language][key] || key;
+
+  const openWhatsAppForProduct = (product: ProductCard, imageUrl: string | null) => {
+    const messageLines = [
+      `Hello, I'm interested in purchasing ${product.name}.`,
+      '',
+      'Is this item currently in stock, and how can I proceed with the checkout?',
+    ];
+
+    if (imageUrl) {
+      messageLines.push('', `Photo: ${imageUrl}`);
+    }
+
+    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(messageLines.join('\n'))}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   useEffect(() => {
     savePreferredLanguage(language);
@@ -872,13 +892,17 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
 
                             <div className="border-t border-slate-100 pt-3 sm:pt-4">
                               <p className="text-[1.42rem] font-extrabold text-blue-900 sm:text-[1.62rem] md:text-[1.82rem]">{formatPrice(selectedProduct.price)}</p>
-                              <p className="mt-1.5 text-[8.5px] text-slate-500 sm:text-[9.5px]">Click Buy Now to contact admin</p>
+                              <p className="mt-1.5 text-[8.5px] text-slate-500 sm:text-[9.5px]">{t('Click WhatsApp')}</p>
                             </div>
                           </div>
 
                           <div className="mt-4 flex flex-row gap-2 sm:mt-5">
-                            <button className="flex-1 rounded-full bg-blue-950 px-5 py-2.5 text-[10px] font-bold text-white transition-colors hover:bg-blue-900 sm:px-6 sm:py-3 sm:text-[11px]" type="button">
-                              Buy Now
+                            <button
+                              className="flex-1 rounded-full bg-blue-950 px-5 py-2.5 text-[10px] font-bold text-white transition-colors hover:bg-blue-900 sm:px-6 sm:py-3 sm:text-[11px]"
+                              type="button"
+                              onClick={() => openWhatsAppForProduct(selectedProduct, selectedPopupImage ?? selectedProduct.image)}
+                            >
+                              {t('Shop on WhatsApp')}
                             </button>
                           </div>
 
