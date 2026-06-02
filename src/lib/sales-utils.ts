@@ -397,7 +397,7 @@ export const buildPrintableBill = (bill: BillRecord) => `
 			<div class="company-info">
 				<h1 class="text-navy">${BUSINESS_PROFILE.shopName}</h1>
 				<p>${escapeHtml(BUSINESS_PROFILE.address)}</p>
-				<p>Owner : ${escapeHtml(BUSINESS_PROFILE.shopOwner)}</p>
+				<p>Buniess Associates : ${escapeHtml(BUSINESS_PROFILE.shopOwner)}</p>
 				<p>Phone : ${escapeHtml(BUSINESS_PROFILE.contactNumber)}</p>
 				<p>Email : ${escapeHtml(BUSINESS_PROFILE.email)}</p>
 			</div>
@@ -527,7 +527,7 @@ export const buildPrintableBill = (bill: BillRecord) => `
 				<div class="card-body">
 					<div class="bank-info">
 						<div class="bank-name">Meezan Bank Limited</div>
-						<strong>Shop Owner:</strong> <span>${escapeHtml(BUSINESS_PROFILE.shopOwner)}</span>
+						<strong>Buniess Associates:</strong> <span>${escapeHtml(BUSINESS_PROFILE.shopOwner)}</span>
 						<strong>Contact Number:</strong> <span>${escapeHtml(BUSINESS_PROFILE.contactNumber)}</span>
 						<strong>Email:</strong> <span>${escapeHtml(BUSINESS_PROFILE.email)}</span>
 						<strong>Address:</strong> <span>${escapeHtml(BUSINESS_PROFILE.address)}</span>
@@ -656,7 +656,7 @@ export const buildPrintablePurchaseInvoice = (purchase: PurchasePrintableRecord)
 			<div class="company-info">
 				<h1 class="text-navy">${BUSINESS_PROFILE.shopName}</h1>
 				<p>${escapeHtml(BUSINESS_PROFILE.address)}</p>
-				<p>Owner : ${escapeHtml(BUSINESS_PROFILE.shopOwner)}</p>
+				<p>Buniess Associates : ${escapeHtml(BUSINESS_PROFILE.shopOwner)}</p>
 				<p>Phone : ${escapeHtml(BUSINESS_PROFILE.contactNumber)}</p>
 				<p>Email : ${escapeHtml(BUSINESS_PROFILE.email)}</p>
 			</div>
