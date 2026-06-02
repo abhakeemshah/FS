@@ -301,8 +301,8 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
       'Email': 'Email',
       'Phone': 'Phone',
       'Hours': 'Mon - Sat: 10:00 AM to 8:00 PM',
-      'Shop Smarter': 'Shop Smarter. Sound Better.',
-      'Premium audio': 'Premium audio products with trusted quality, fast service, and a shopping experience designed for comfort.',
+      'Shop Smarter': 'Shop Smarter. Live Better.',
+      'Premium audio': 'Quality products with trusted service, fast support, and a shopping experience designed for comfort.',
       'What\'s Hot Right Now': 'What\'s Hot Right Now',
       'Buy Product': 'Buy Product',
       'Buy Now': 'Buy Now',
@@ -329,8 +329,8 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
       'Email': 'ای میل',
       'Phone': 'فون',
       'Hours': 'پیر - ہفتہ: صبح 10:00 سے شام 8:00 بجے تک',
-      'Shop Smarter': 'ہوشیاری سے خریداری کریں۔ بہتر آواز۔',
-      'Premium audio': 'قابل اعتماد معیار، تیز سروس اور آرام دہ شپنگ کا تجربہ کے ساتھ پریمیم آڈیو مصنوعات۔',
+      'Shop Smarter': 'ہوشیاری سے خریداری کریں۔ بہتر زندگی۔',
+      'Premium audio': 'قابل اعتماد معیار، تیز سروس، اور آرام دہ خریداری کے تجربے کے ساتھ معیاری مصنوعات۔',
       'What\'s Hot Right Now': 'اب کیا گرم ہے',
       'Buy Product': 'مصنوع خریدیں',
       'Buy Now': 'ابھی خریدیں',
@@ -834,7 +834,7 @@ export default function LandingPage({ initialCatalogSnapshot }: { initialCatalog
           </div>
 
           <div className="mt-7 border-t border-white/15 pt-4 text-xs text-blue-100">
-            <p>© {new Date().getFullYear()} Abdul Hakeem Shah. {t('All rights')} </p>
+            <p>© {new Date().getFullYear()} FS MOBILE ACCESSORIES. {t('All rights')} </p>
           </div>
         </footer>
 
