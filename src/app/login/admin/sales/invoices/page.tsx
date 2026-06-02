@@ -683,7 +683,7 @@ export default function AdminSalesInvoicesPage({ readOnly = false }: { readOnly?
 					<div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
 						<div>
 							<h3 className="text-sm font-bold text-slate-900">Printable Preview</h3>
-							<p className="text-[11px] text-slate-500">Preview the printable layout. Use Print or Open in New Tab.</p>
+							<p className="text-[11px] text-slate-500">Preview the printable layout. Use Download PDF or Open in New Tab.</p>
 						</div>
 						<div className="flex items-center gap-2">
 							<button type="button" onClick={() => {
@@ -696,7 +696,7 @@ export default function AdminSalesInvoicesPage({ readOnly = false }: { readOnly?
 								if (iframe && iframe.contentWindow) {
 									try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (err) { setError('Print failed: ' + String(err)); }
 								}
-							}} className="rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white">Print</button>
+							}} className="rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white">Download PDF</button>
 							<button type="button" onClick={() => { setIsPreviewOpen(false); setPreviewHtml(null); }} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">Close</button>
 						</div>
 					</div>
