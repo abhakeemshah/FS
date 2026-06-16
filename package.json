@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "postinstall": "npx prisma generate || true",
+    "postinstall": "[ \"$NODE_ENV\" = \"production\" ] || npx prisma generate || true",
     "safe:prisma:push": "powershell -ExecutionPolicy Bypass -File ./scripts/safe-prisma-push.ps1",
     "safe:prisma:push:sh": "bash ./scripts/safe-prisma-push.sh",
     "dev": "next dev",

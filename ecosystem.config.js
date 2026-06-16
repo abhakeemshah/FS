@@ -18,8 +18,10 @@
     "dist",
     ".next"
   ],
-  "max_memory_restart": "500M",
+  "max_memory_restart": "1G",
   "autorestart": true,
   "max_restarts": 10,
-  "min_uptime": "10s"
+  "min_uptime": "60s",
+  "listen_timeout": 5000,
+  "kill_timeout": 5000
 }

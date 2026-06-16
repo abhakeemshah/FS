@@ -42,8 +42,8 @@ npx prisma migrate deploy || true
 # 6. Start with PM2 (if available)
 if command -v pm2 &> /dev/null; then
   echo "▶️  Starting with PM2..."
-  pm2 delete "fs-communication" || true
-  pm2 start ecosystem.config.js --name "fs-communication"
+  pm2 reload ecosystem.config.js --name "fs-communication" || \
+    pm2 start ecosystem.config.js --name "fs-communication"
   pm2 save
   pm2 startup
 else
