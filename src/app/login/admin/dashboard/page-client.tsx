@@ -6,13 +6,24 @@ import { readStaffSession, hasAdminSession } from '../../../../lib/staff-auth';
 import { AdminShell, useWorkspaceMode } from '../../../../components/admin-shell';
 import { DashboardMetricsEditor } from '../../../../components/dashboard-metrics-editor';
 import { DashboardSummaryCharts } from '../../../../components/dashboard-summary-charts';
-import { LEDGER_STORAGE_EVENT, SALES_BILLS_STORAGE_KEY, PURCHASES_STORAGE_KEY, fetchLedgerSnapshot, parseStoredArray, type SalesBillLike, type PurchaseRecordLike } from '../../../../lib/ledger-store';
 
-type RecentInvoiceRow = SalesBillLike;
+type RecentInvoiceRow = {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  time: string;
+  customerName: string;
+  customerContact: string | null;
+  paymentMethod: string;
+  subtotal: number;
+  discount: number;
+  profit: number;
+  total: number;
+  recordedBy: string | null;
+};
 
 type DashboardPageClientProps = {
-  initialSalesBills?: RecentInvoiceRow[];
-  initialMetricOverrides?: Record<string, string>;
+  initialInvoices?: RecentInvoiceRow[];
 };
 
 const formatDate = (value: string) =>
@@ -48,11 +59,11 @@ const downloadText = (fileName: string, content: string, mimeType: string) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 };
 
-export default function DashboardPageClient({ initialSalesBills = [], initialMetricOverrides = {} }: DashboardPageClientProps) {
+export default function DashboardPageClient({ initialInvoices = [] }: DashboardPageClientProps) {
   const router = useRouter();
   const mode = useWorkspaceMode();
-  const [salesBills, setSalesBills] = useState<RecentInvoiceRow[]>(initialSalesBills);
-  const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecordLike[]>([]);
+  const [invoices, setInvoices] = useState<RecentInvoiceRow[]>(initialInvoices);
+  const [purchaseRecords, setPurchaseRecords] = useState<any[]>([]);
 
   useEffect(() => {
     const staff = readStaffSession();
@@ -61,35 +72,25 @@ export default function DashboardPageClient({ initialSalesBills = [], initialMet
     }
   }, [mode, router]);
 
-  const refreshLedgerFromServer = async () => {
+  const refreshData = async () => {
     try {
-      const snapshot = await fetchLedgerSnapshot();
-      const nextBills = parseStoredArray<RecentInvoiceRow>(snapshot[SALES_BILLS_STORAGE_KEY]);
-      const nextPurchases = parseStoredArray<PurchaseRecordLike>(snapshot[PURCHASES_STORAGE_KEY]);
-      setSalesBills(Array.isArray(nextBills) ? nextBills : []);
-      setPurchaseRecords(Array.isArray(nextPurchases) ? nextPurchases : []);
+      const [invRes, purRes] = await Promise.all([
+        fetch('/api/invoices', { cache: 'no-store', credentials: 'include' }),
+        fetch('/api/purchases', { cache: 'no-store', credentials: 'include' }),
+      ]);
+      const [invData, purData] = await Promise.all([invRes.json(), purRes.json()]);
+      if (invData.success) setInvoices(invData.invoices);
+      if (purData.success) setPurchaseRecords(purData.purchases);
     } catch {
-      // Keep the current snapshot if the server is temporarily unavailable.
+      // Keep current state if server is temporarily unavailable
     }
   };
 
   useEffect(() => {
-    void refreshLedgerFromServer();
-
-    const onLedgerChange: EventListener = () => {
-      void refreshLedgerFromServer();
-    };
-
-    window.addEventListener('storage', onLedgerChange);
-    window.addEventListener(LEDGER_STORAGE_EVENT, onLedgerChange);
-
-    return () => {
-      window.removeEventListener('storage', onLedgerChange);
-      window.removeEventListener(LEDGER_STORAGE_EVENT, onLedgerChange);
-    };
+    void refreshData();
   }, []);
 
-  const recentInvoices = useMemo(() => salesBills.slice().sort(sortByRecent).slice(0, 8), [salesBills]);
+  const recentInvoices = useMemo(() => invoices.slice().sort(sortByRecent).slice(0, 8), [invoices]);
 
   const exportRecords = () => {
     const csv = buildRowsCsv(recentInvoices);
@@ -98,9 +99,9 @@ export default function DashboardPageClient({ initialSalesBills = [], initialMet
 
   return (
     <AdminShell active="dashboard" title="Dashboard">
-      <DashboardMetricsEditor initialOverrides={initialMetricOverrides} initialSalesBills={salesBills} initialPurchaseRecords={purchaseRecords} />
+      <DashboardMetricsEditor initialOverrides={{}} initialSalesBills={invoices} initialPurchaseRecords={purchaseRecords} />
 
-      <DashboardSummaryCharts initialRecords={salesBills} />
+      <DashboardSummaryCharts initialRecords={invoices} />
 
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">

@@ -1,5 +1,5 @@
 import { unstable_noStore as noStore } from 'next/cache';
-import { readLedgerSnapshot } from '../../../../lib/ledger-server';
+import { listInvoices } from '../../../../lib/services/invoice-service';
 import DashboardPageClient from './page-client';
 
 export const dynamic = 'force-dynamic';
@@ -7,16 +7,14 @@ export const revalidate = 0;
 
 export default async function AdminDashboardPage() {
   noStore();
-  let snapshot: Record<string, string> = {};
+  let invoices = [];
   try {
-    snapshot = await readLedgerSnapshot();
+    invoices = await listInvoices({ limit: 50 });
   } catch (err) {
-    console.error('Error reading ledger snapshot:', err);
-    snapshot = {};
+    console.error('Error fetching invoices:', err);
   }
 
-  const initialSalesBills = JSON.parse(snapshot['fs-communication:sales-bills'] ?? '[]');
-  const initialMetricOverrides = JSON.parse(snapshot['fs-communication:dashboard-metrics'] ?? '{}');
+  const serializedInvoices = JSON.parse(JSON.stringify(invoices));
 
-  return <DashboardPageClient initialSalesBills={initialSalesBills} initialMetricOverrides={initialMetricOverrides} />;
+  return <DashboardPageClient initialInvoices={serializedInvoices} />;
 }
