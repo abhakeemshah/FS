@@ -12,6 +12,7 @@ import {
   readStaffAccountFileRecords,
   upsertStaffAccountFileRecord,
 } from '../../../../lib/staff-store-server';
+import { upsertStaffPermission, deleteStaffPermission } from '../../../../lib/services/staff-permission-service';
 
 async function verifyAdminSession(authToken: string) {
   const payload = await jwtVerify(authToken);
@@ -76,8 +77,10 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
+    const staffId = `staff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     const staffRecord = {
-		id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+		id: staffId,
 		name,
 		email: normalizedEmail,
 		password: hashedPassword,
@@ -89,12 +92,19 @@ export async function POST(req: NextRequest) {
     try {
       await prisma.user.create({
         data: {
-          id: staffRecord.id,
+          id: staffId,
           email: normalizedEmail,
           password: hashedPassword,
           name,
           role: 'staff',
         },
+      });
+
+      // Create default StaffPermission record for the new staff member
+      await upsertStaffPermission({
+        userId: staffId,
+        role: 'cashier',
+        status: 'active',
       });
     } catch (error) {
       console.error('Prisma create staff fallback to file store:', error);
@@ -260,18 +270,28 @@ export async function PATCH(req: NextRequest) {
     const entries = Object.entries(accessMetaMap);
     await Promise.all(
       entries.map(async ([key, meta]) => {
+        const metaObj = meta as Record<string, unknown>;
         const user = await prisma.user
           .findFirst({ where: { OR: [{ id: key }, { email: key }, { name: key }] } })
           .catch(() => null);
 
         if (user) {
-          await prisma.user.update({ where: { id: user.id }, data: { staffAccessMetaJson: JSON.stringify(meta ?? {}) } }).catch(() => null);
+          await prisma.user.update({ where: { id: user.id }, data: { staffAccessMetaJson: JSON.stringify(metaObj ?? {}) } }).catch(() => null);
+
+          // Also write to StaffPermission table
+          await upsertStaffPermission({
+            userId: user.id,
+            role: (metaObj.role as any) ?? 'cashier',
+            status: (metaObj.status as any) ?? 'active',
+            permissions: metaObj.permissions as Record<string, string> | undefined,
+            allowedSettings: metaObj.allowedSettings as string[] | undefined,
+          }).catch(() => null);
           return;
         }
 
         const fileRecord = findStaffAccountFileRecordById(key) ?? findStaffAccountFileRecordByEmail(key);
         if (fileRecord) {
-          upsertStaffAccountFileRecord({ ...fileRecord, staffAccessMetaJson: JSON.stringify(meta ?? {}) });
+          upsertStaffAccountFileRecord({ ...fileRecord, staffAccessMetaJson: JSON.stringify(metaObj ?? {}) });
         }
       }),
     );
@@ -306,6 +326,7 @@ export async function DELETE(req: NextRequest) {
 
     try {
       await prisma.user.delete({ where: { id: staffId } });
+      await deleteStaffPermission(staffId);
     } catch (error) {
       console.error('Prisma delete fallback to file store:', error);
     }

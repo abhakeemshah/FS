@@ -3,6 +3,7 @@ import prisma from '../../../lib/db';
 import { ensureDbReady } from '../../../lib/db-init';
 import { normalizeStaffAccessMeta, createDefaultStaffAccessMeta } from '../../../lib/staff-auth';
 import { findStaffAccountFileRecordById } from '../../../lib/staff-store-server';
+import { getStaffPermission } from '../../../lib/services/staff-permission-service';
 import fs from 'fs';
 import path from 'path';
 
@@ -18,13 +19,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'username or id is required' }, { status: 400 });
     }
 
-    let user = null;
+    let user: { id: string; email: string; staffAccessMetaJson?: string | null } | null = null;
     if (userId) {
-      user = await prisma.user.findUnique({ where: { id: userId } });
+      user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, staffAccessMetaJson: true } });
     } else if (username) {
-      user = await prisma.user.findFirst({ where: { email: username } }).catch(() => null);
+      user = await prisma.user.findFirst({ where: { email: username }, select: { id: true, email: true, staffAccessMetaJson: true } }).catch(() => null);
     }
 
+    // Fallback to file store if not found in DB
     if (!user && userId) {
       const fileAccount = findStaffAccountFileRecordById(userId);
       if (fileAccount) {
@@ -32,16 +34,26 @@ export async function GET(req: NextRequest) {
           id: fileAccount.id,
           email: fileAccount.email,
           staffAccessMetaJson: fileAccount.staffAccessMetaJson ?? null,
-        } as {
-          id: string;
-          email: string;
-          staffAccessMetaJson?: string | null;
         };
       }
     }
 
-    const dataDir = path.join(process.cwd(), 'data');
-    const mapFile = path.join(dataDir, 'staff-access-map.json');
+    // Try StaffPermission table as primary source
+    if (user) {
+      const permission = await getStaffPermission(user.id);
+      if (permission) {
+        const staffAccessMeta = normalizeStaffAccessMeta({
+          role: permission.role,
+          status: permission.status,
+          permissions: permission.permissions ? JSON.parse(permission.permissions) : undefined,
+          allowedSettings: permission.allowedSettings ? JSON.parse(permission.allowedSettings) : undefined,
+          lastUpdatedAt: permission.lastUpdatedAt.toISOString(),
+        });
+        return NextResponse.json({ success: true, staffAccessMeta });
+      }
+    }
+
+    const mapFile = path.join(process.cwd(), 'data', 'staff-access-map.json');
     const resolvedUsername = username ?? (user ? user.email.trim().toLowerCase() : null);
 
     if (!user) {

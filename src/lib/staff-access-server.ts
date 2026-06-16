@@ -14,13 +14,14 @@ import {
   type StaffAccessMeta,
   type StaffModuleKey,
 } from './staff-auth';
+import { getStaffPermission } from './services/staff-permission-service';
 
 /**
  * Resolve a staff member's access permissions from trusted server-side sources
- * (Prisma user row, then the server-side file store, then the admin-published
- * access map). This mirrors the resolution used by GET /api/staff-meta, so the
- * server enforces exactly the permissions the admin configured. Permissions are
- * NEVER taken from request-supplied data, so they cannot be forged by a client.
+ * (StaffPermission table, then Prisma user row, then the server-side file store,
+ * then the admin-published access map). The StaffPermission table is the primary
+ * source and is authoritative. Permissions are NEVER taken from request-supplied
+ * data, so they cannot be forged by a client.
  */
 export async function resolveStaffAccessMeta(opts: {
   id?: string | null;
@@ -33,6 +34,21 @@ export async function resolveStaffAccessMeta(opts: {
     await ensureDbReady();
   } catch {}
 
+  // Primary source: StaffPermission table
+  if (id) {
+    const permission = await getStaffPermission(id);
+    if (permission) {
+      return normalizeStaffAccessMeta({
+        role: permission.role,
+        status: permission.status,
+        permissions: permission.permissions ? JSON.parse(permission.permissions) : undefined,
+        allowedSettings: permission.allowedSettings ? JSON.parse(permission.allowedSettings) : undefined,
+        lastUpdatedAt: permission.lastUpdatedAt.toISOString(),
+      });
+    }
+  }
+
+  // Fallback 1: staffAccessMetaJson on the User model
   let metaJson: string | null = null;
 
   if (id) {
@@ -65,6 +81,7 @@ export async function resolveStaffAccessMeta(opts: {
     } catch {}
   }
 
+  // Fallback 2: admin-published access map file
   if (email) {
     try {
       const mapFile = path.join(process.cwd(), 'data', 'staff-access-map.json');
