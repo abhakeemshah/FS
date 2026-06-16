@@ -23,17 +23,23 @@ fi
 echo "📦 Installing dependencies..."
 npm ci
 
-# 3. Set up environment
-if [ ! -f ".env.local" ]; then
-  echo "⚙️  Creating .env.local from template..."
-  cp .env.example .env.local
-  echo "⚠️  Please edit .env.local with production values (NEXTAUTH_SECRET, DATABASE_URL, TURSO_AUTH_TOKEN, etc.)"
+# 3. Set up environment — load live Turso credentials
+if [ -f ".env" ]; then
+  echo "⚙️  Loading environment from .env..."
+  set -a; source .env; set +a
+elif [ -f ".env.local" ]; then
+  echo "⚙️  Loading environment from .env.local..."
+  set -a; source .env.local; set +a
+else
+  echo "⚠️  WARNING: No .env or .env.local file found!"
+  echo "⚠️  The Turso DATABASE_URL credentials are not loaded."
+  echo "⚠️  The next command will fail against the wrong database."
   exit 1
 fi
 
 # 4. Sync database schema (push to Turso cloud so columns match the Prisma schema)
 echo "🗄️  Syncing database schema..."
-npx prisma db push || true
+npx prisma db push
 
 # 5. Build application
 echo "🔨 Building application..."
