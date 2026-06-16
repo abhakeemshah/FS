@@ -1,36 +1,120 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Prisma schema for FS MOBILE ACCESSORIES
+// Turso (LibSQL) cloud database with driver adapters
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// USER MODEL
+// Core authentication and user management
+// ============================================================================
+
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
+  id        String   @id @default(cuid())
+  email     String   @unique
   password  String
   name      String?
-  role      String     @default("staff") // "admin" or "staff"
-  staffAccessMetaJson String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  role      String   @default("staff") // "admin" or "staff"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
 }
 
-model CatalogSnapshot {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     String?
-  updatedAt DateTime @updatedAt
+// ============================================================================
+// PRODUCT MODEL
+// General product/item catalog for mobile accessories
+// ============================================================================
+
+model Product {
+  id              String             @id @default(cuid())
+  name            String
+  description     String?
+  sku             String             @unique
+  costPrice       Float              @default(0)
+  wholesalePrice  Float              @default(0)
+  stockLevel      Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Relations
+  variants        ProductVariant[]
+  invoiceItems    InvoiceItem[]
+
+  @@index([sku])
+  @@index([name])
 }
 
-model LedgerSnapshot {
+// ============================================================================
+// PRODUCT VARIANT MODEL
+// Handles variations like colors, phone models, sizes, etc.
+// ============================================================================
+
+model ProductVariant {
+  id          String   @id @default(cuid())
+  productId   String
+  variantName String   // e.g., "Midnight Black - iPhone 15 Pro"
+  stockLevel  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([variantName])
+}
+
+// ============================================================================
+// INVOICE MODEL
+// Sales tracking and billing
+// ============================================================================
+
+model Invoice {
+  id            String         @id @default(cuid())
+  invoiceNumber String         @unique
+  customerName  String
+  totalAmount   Float          @default(0)
+  amountPaid    Float          @default(0)
+  paymentStatus String         @default("UNPAID") // "PAID", "PARTIAL", "UNPAID"
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  items         InvoiceItem[]
+
+  @@index([invoiceNumber])
+  @@index([customerName])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// INVOICE ITEM MODEL
+// Individual line items within an invoice
+// ============================================================================
+
+model InvoiceItem {
   id        String   @id @default(cuid())
-  key       String   @unique
-  value     String?
-  updatedAt DateTime @updatedAt
+  invoiceId String
+  productId String
+  quantity  Int
+  unitPrice Float
+  totalPrice Float
+  createdAt DateTime @default(now())
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
+  @@index([productId])
 }
