@@ -1,5 +1,6 @@
 // Prisma schema for FS MOBILE ACCESSORIES
 // Turso (LibSQL) cloud database with driver adapters
+// Complete relational model for all business operations
 
 generator client {
   provider        = "prisma-client-js"
@@ -12,109 +13,332 @@ datasource db {
 }
 
 // ============================================================================
+// LEGACY KEY-VALUE TABLES (still used by current UI — maintained for migration)
+// ============================================================================
+
+/// Key-value store for product catalog state (legacy — being migrated)
+model CatalogSnapshot {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String?
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
+/// Key-value store for financial ledger state (legacy — being migrated)
+model LedgerSnapshot {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String?
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
+// ============================================================================
 // USER MODEL
 // Core authentication and user management
 // ============================================================================
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      String   @default("staff") // "admin" or "staff"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  password            String
+  name                String?
+  role                String   @default("staff") // "admin" or "staff"
+  staffAccessMetaJson String? // JSON: granular permission metadata
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  staffPermission StaffPermission?
 
   @@index([email])
   @@index([role])
 }
 
 // ============================================================================
-// PRODUCT MODEL
-// General product/item catalog for mobile accessories
+// STAFF PERMISSION MODEL (replaces cookie + file-based permissions)
 // ============================================================================
 
-model Product {
-  id              String             @id @default(cuid())
-  name            String
-  description     String?
-  sku             String             @unique
-  costPrice       Float              @default(0)
-  wholesalePrice  Float              @default(0)
-  stockLevel      Int                @default(0)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+/// Per-user staff access permissions for all business modules
+model StaffPermission {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  role            String   @default("cashier") // "cashier" | "sales" | "inventory" | "supervisor"
+  status          String   @default("active") // "active" | "suspended"
+  permissions     String? // JSON: { "dashboard": "view", "sales":"edit", ... }
+  allowedSettings String? // JSON: ["profile", "interface", ...]
+  lastUpdatedAt   DateTime @default(now()) @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================================================
+// BUSINESS SETTINGS MODEL (replaces CatalogSnapshot blob + API)
+// ============================================================================
+
+/// Singleton row for business profile and invoice number prefixes
+model BusinessSetting {
+  id             String   @id @default("default")
+  shopName       String
+  shopPhone      String
+  shopEmail      String
+  shopAddress    String
+  salesPrefix    String   @default("INV")
+  purchasePrefix String   @default("PUR")
+  paymentPrefix  String   @default("PAY")
+  updatedAt      DateTime @updatedAt
+}
+
+// ============================================================================
+// CATEGORY MODEL (replaces CatalogSnapshot[product-categories] blob)
+// ============================================================================
+
+/// Product categories for the storefront catalog
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
   // Relations
-  variants        ProductVariant[]
-  invoiceItems    InvoiceItem[]
+  products Product[]
+
+  @@index([slug])
+}
+
+// ============================================================================
+// PRODUCT MODEL (replaces CatalogSnapshot[products] blob + legacy Product)
+// ============================================================================
+
+/// Full product catalog record with pricing, stock, images, and landing visibility
+model Product {
+  id                     String   @id @default(cuid())
+  name                   String
+  sku                    String   @unique
+  categoryId             String
+  bio                    String? // Short description / bio
+  imageUrls              String? // JSON array: up to 4 image URLs
+  price                  Float    @default(0) // Selling price
+  costPrice              Float    @default(0) // Cost price for profit calc
+  stock                  Int      @default(0)
+  status                 String   @default("active") // "active" | "draft"
+  showOnLanding          Boolean  @default(false)
+  showOnExtraLanding     Boolean  @default(false)
+  showOnSecondaryLanding Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  // Relations
+  category      Category          @relation(fields: [categoryId], references: [id])
+  invoiceItems  InvoiceItem[]
+  purchaseItems PurchaseItem[]
+  listItems     ProductListItem[]
 
   @@index([sku])
+  @@index([categoryId])
+  @@index([status])
   @@index([name])
 }
 
 // ============================================================================
-// PRODUCT VARIANT MODEL
-// Handles variations like colors, phone models, sizes, etc.
+// PRODUCT LIST MODELS (replaces CatalogSnapshot[product-lists] blob)
 // ============================================================================
 
-model ProductVariant {
-  id          String   @id @default(cuid())
-  productId   String
-  variantName String   // e.g., "Midnight Black - iPhone 15 Pro"
-  stockLevel  Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+/// Curated product lists for the landing page (e.g., "What's Hot Right Now")
+model ProductList {
+  id               String   @id @default(cuid())
+  name             String
+  visibleOnLanding Boolean  @default(true)
+  createdAt        DateTime @default(now())
 
   // Relations
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  items ProductListItem[]
+}
 
-  @@index([productId])
-  @@index([variantName])
+/// Join table linking products to product lists
+model ProductListItem {
+  id        String @id @default(cuid())
+  listId    String
+  productId String
+
+  list    ProductList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  product Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, productId])
 }
 
 // ============================================================================
-// INVOICE MODEL
-// Sales tracking and billing
+// LANDING HERO SETTINGS MODEL (replaces CatalogSnapshot[landing-hero] blob)
 // ============================================================================
 
+/// Singleton row for the landing page hero banner configuration
+model LandingHeroSetting {
+  id              String   @id @default("default")
+  title           String
+  buttonText      String
+  buttonHref      String
+  imageUrl        String
+  backgroundColor String   @default("#f4ede3")
+  overlayOpacity  Int      @default(82)
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================================================
+// INVOICE MODEL (replaces LedgerSnapshot[sales-bills] blob + legacy Invoice)
+// ============================================================================
+
+/// Sales invoice record with customer details and line items
 model Invoice {
-  id            String         @id @default(cuid())
-  invoiceNumber String         @unique
-  customerName  String
-  totalAmount   Float          @default(0)
-  amountPaid    Float          @default(0)
-  paymentStatus String         @default("UNPAID") // "PAID", "PARTIAL", "UNPAID"
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  date            String // YYYY-MM-DD
+  time            String // HH:MM:SS
+  customerName    String
+  customerContact String?
+  paymentMethod   String // Cash, EasyPaisa, JazzCash, Bank Transfer, Card
+  subtotal        Float    @default(0)
+  discount        Float    @default(0)
+  profit          Float    @default(0)
+  total           Float    @default(0)
+  recordedBy      String? // Name of the user who recorded this
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
-  items         InvoiceItem[]
+  items InvoiceItem[]
 
   @@index([invoiceNumber])
   @@index([customerName])
-  @@index([paymentStatus])
+  @@index([date])
+  @@index([paymentMethod])
   @@index([createdAt])
 }
 
 // ============================================================================
-// INVOICE ITEM MODEL
-// Individual line items within an invoice
+// INVOICE ITEM MODEL (replaces nested items in sales-bills blob)
 // ============================================================================
 
+/// Individual line item within a sales invoice
 model InvoiceItem {
-  id        String   @id @default(cuid())
-  invoiceId String
-  productId String
-  quantity  Int
-  unitPrice Float
-  totalPrice Float
-  createdAt DateTime @default(now())
+  id          String  @id @default(cuid())
+  invoiceId   String
+  productId   String? // Nullable: product may be deleted after sale
+  productName String // Denormalized for print/history
+  quantity    Int     @default(0)
+  price       Float   @default(0) // Unit selling price
+  costPrice   Float   @default(0) // Unit cost at time of sale
+  discount    Float   @default(0) // Line discount amount
+  total       Float   @default(0) // (quantity * price) - discount
+  profit      Float   @default(0) // total - (quantity * costPrice)
 
   // Relations
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 
   @@index([invoiceId])
   @@index([productId])
+}
+
+// ============================================================================
+// PURCHASE MODEL (replaces LedgerSnapshot[purchases] blob)
+// ============================================================================
+
+/// Purchase order record from suppliers
+model Purchase {
+  id                String   @id @default(cuid())
+  purchaseNumber    String   @unique
+  supplierName      String
+  sourceName        String   @default("Direct")
+  purchaseReference String?
+  purchaseDate      String // YYYY-MM-DD
+  purchaseTime      String // HH:MM
+  paymentMethod     String
+  status            String   @default("Pending") // Pending, Received, Partially Received, Cancelled
+  transportCost     Float    @default(0)
+  notes             String?
+  subtotal          Float    @default(0)
+  totalUnits        Int      @default(0)
+  total             Float    @default(0)
+  recordedBy        String? // Name of who recorded this
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  items PurchaseItem[]
+
+  @@index([purchaseNumber])
+  @@index([supplierName])
+  @@index([purchaseDate])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// PURCHASE ITEM MODEL (replaces nested items in purchases blob)
+// ============================================================================
+
+/// Individual line item within a purchase order (wholesale: boxes + pieces + loose)
+model PurchaseItem {
+  id           String  @id @default(cuid())
+  purchaseId   String
+  productId    String? // Nullable: product may be deleted
+  productName  String // Denormalized for print/history
+  boxes        Int     @default(0)
+  piecesPerBox Int     @default(0)
+  loosePieces  Int     @default(0)
+  unitCost     Float   @default(0)
+  totalUnits   Int     @default(0) // (boxes * piecesPerBox) + loosePieces
+  lineTotal    Float   @default(0) // totalUnits * unitCost
+
+  // Relations
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product? @relation(fields: [productId], references: [id])
+
+  @@index([purchaseId])
+  @@index([productId])
+}
+
+// ============================================================================
+// PAYMENT MODEL (replaces LedgerSnapshot[manual-payments] blob)
+// ============================================================================
+
+/// Manual payment records (non-invoice/non-purchase cash movements)
+model Payment {
+  id            String   @id @default(cuid())
+  paymentNumber String   @unique
+  title         String
+  party         String // Customer/supplier name
+  direction     String // "Incoming" | "Outgoing"
+  amount        Float    @default(0)
+  date          String // YYYY-MM-DD
+  time          String // HH:MM
+  notes         String?
+  recordedBy    String?
+  createdAt     DateTime @default(now())
+
+  @@index([paymentNumber])
+  @@index([party])
+  @@index([date])
+  @@index([direction])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// DASHBOARD METRIC MODEL (replaces LedgerSnapshot[dashboard-metrics] blob)
+// ============================================================================
+
+/// Key-value metric overrides for the admin dashboard
+model DashboardMetric {
+  id    String  @id @default(cuid())
+  key   String  @unique
+  value String?
+
+  @@index([key])
 }
