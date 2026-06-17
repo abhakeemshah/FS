@@ -109,34 +109,19 @@ function YearlyBarChart({ values, barColor }: { values: number[]; barColor: stri
 
 function ChartCard({
   title,
-  buttonLabel,
-  buttonTone,
   barColor,
   values,
   legend,
 }: {
   title: string;
-  buttonLabel: string;
-  buttonTone: string;
   barColor: string;
   values: number[];
   legend: Array<{ label: string; color: string }>;
 }) {
   return (
     <section className="flex h-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-      <div className="flex flex-wrap items-start justify-between gap-2 px-1 pt-1">
-        <div className="space-y-2">
-          <div>
-            <h3 className="text-sm font-bold tracking-tight text-slate-900">{title}</h3>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className={`inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${buttonTone}`}
-        >
-          {buttonLabel}
-        </button>
+      <div className="px-1 pt-1">
+        <h3 className="text-sm font-bold tracking-tight text-slate-900">{title}</h3>
       </div>
 
       <div className="mt-1 flex-1">
@@ -190,16 +175,12 @@ export function DashboardSummaryCharts({ initialRecords = [] }: { initialRecords
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
       <ChartCard
         title="Invoices by Month"
-        buttonLabel="Open Invoice Report"
-        buttonTone="border-slate-200 bg-slate-50 text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm"
         barColor="#60a5fa"
         values={invoiceValues}
         legend={[{ label: 'Invoices issued', color: '#60a5fa' }]}
       />
       <ChartCard
         title="Sales Performance"
-        buttonLabel="Open Sales Report"
-        buttonTone="border-slate-200 bg-slate-50 text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm"
         barColor="#34d399"
         values={salesValues}
         legend={[{ label: 'Sales volume', color: '#10b981' }]}
